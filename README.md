@@ -58,7 +58,7 @@ This is a best-effort alignment with HIPAA's technical safeguards, not a complia
 - Never logged: the ZIP, product codes of routed items, request bodies and exception messages. Validation and routing error messages can include a product code. Unexpected errors log only the exception type and where it was thrown.
 - Control characters in caller-supplied text are replaced before logging, so a caller cannot forge log lines.
 
-**Input handling.** Every response to `/api/route`, including unexpected failures, has the documented shape, and the cause is never exposed to the caller. Fractional quantities (`1.9`), null items, bad JSON and the wrong content type are rejected, not coerced.
+**Input handling.** Every response to `/api/route`, including unexpected failures, has the documented shape, and the cause is never exposed to the caller. Fractional quantities (`1.9`, reported as "must be a whole number"), quantities beyond the integer range, null items, bad JSON and the wrong content type are rejected, not coerced. A whole number written with a decimal point (`2.0`) is accepted.
 
 **Container.** Runs as a non-root user (uid 10001) and works with a read-only filesystem:
 

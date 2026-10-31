@@ -3,6 +3,7 @@ package com.synapse.orderrouter.api;
 import com.synapse.orderrouter.api.RouteRequest.LineItem;
 import com.synapse.orderrouter.catalog.Catalog;
 import com.synapse.orderrouter.catalog.ServiceArea;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -11,6 +12,8 @@ import org.springframework.stereotype.Component;
 /** Checks what can be decided from the request alone. Whether suppliers exist is the router's job. */
 @Component
 public class RouteRequestValidator {
+
+    private static final BigDecimal MAX_QUANTITY = BigDecimal.valueOf(Integer.MAX_VALUE);
 
     private final Catalog catalog;
 
@@ -44,8 +47,19 @@ public class RouteRequestValidator {
         if (item.productCode() == null || !catalog.productCategories().containsKey(item.productCode())) {
             errors.add("Unknown product code: " + item.productCode() + ".");
         }
-        if (item.quantity() == null || item.quantity().signum() <= 0) {
+        validateQuantity(item, errors);
+    }
+
+    private static void validateQuantity(LineItem item, List<String> errors) {
+        BigDecimal quantity = item.quantity();
+        if (quantity == null || quantity.signum() <= 0) {
             errors.add("Quantity for " + item.productCode() + " must be a positive integer.");
+        } else if (quantity.stripTrailingZeros().scale() > 0) {
+            errors.add("Quantity for " + item.productCode() + " must be a whole number, but was "
+                    + quantity.toPlainString() + ".");
+        } else if (quantity.compareTo(MAX_QUANTITY) > 0) {
+            errors.add("Quantity for " + item.productCode() + " is too large (maximum is " + Integer.MAX_VALUE
+                    + ").");
         }
     }
 }
