@@ -9,6 +9,7 @@ import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.Plan.Assignment;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -37,8 +38,8 @@ class RouterServiceTest {
     }
 
     private static RoutingResult route(Order order, Supplier... suppliers) {
-        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker())
-                .route(order);
+        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker(),
+                new SimpleMeterRegistry()).route(order);
     }
 
     private static Order order(boolean mailOrder, String... productCodes) {
@@ -168,7 +169,7 @@ class RouterServiceTest {
         Supplier everything = new Supplier("SUP-001", "Name SUP-001", ServiceArea.parse(ZIP), categories, 7, false);
 
         RoutingResult result = new RouterService(new Catalog(List.of(everything), products),
-                new DefaultSupplierSetRanker()).route(new Order(ZIP, false, lines));
+                new DefaultSupplierSetRanker(), new SimpleMeterRegistry()).route(new Order(ZIP, false, lines));
 
         assertThat(supplierIds(result)).containsExactly("SUP-001");
         assertThat(assignmentsOf(result, "SUP-001")).hasSize(40);
@@ -294,5 +295,36 @@ class RouterServiceTest {
                 .extracting(a -> a.supplier().name(), Assignment::productCode, Assignment::category,
                         Assignment::quantity)
                 .containsExactly(tuple("Name SUP-001", "P-CANE", "cane", 2));
+    }
+
+    // --- search effort metrics ---
+
+    @Test
+    void recordsHowMuchWorkTheSearchDid() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RouterService service = new RouterService(new Catalog(List.of(
+                supplier("SUP-001", ZIP, "cane,cpap,oxygen,wheelchair", 7, false),
+                supplier("SUP-002", ZIP, "cane,oxygen,walker", 7, false),
+                supplier("SUP-003", ZIP, "cpap,wheelchair,commode", 7, false)), PRODUCTS),
+                new DefaultSupplierSetRanker(), registry);
+
+        service.route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
+
+        // 3 distinct candidates; 3 single suppliers tried, then 3 pairs, and a pair covers the order.
+        assertThat(registry.get("router.search.candidates").summary().totalAmount()).isEqualTo(3);
+        assertThat(registry.get("router.search.combinations").summary().totalAmount()).isEqualTo(6);
+        assertThat(registry.get("router.search.suppliers").summary().totalAmount()).isEqualTo(2);
+    }
+
+    @Test
+    void anUnroutableOrderRecordsNoSearchWork() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RouterService service = new RouterService(
+                new Catalog(List.of(supplier("SUP-001", ZIP, "cane", 7, false)), PRODUCTS),
+                new DefaultSupplierSetRanker(), registry);
+
+        service.route(order(false, "P-OXY"));
+
+        assertThat(registry.find("router.search.combinations").summary()).isNull();
     }
 }

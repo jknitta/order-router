@@ -5,6 +5,7 @@ import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.Plan.Assignment;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -40,7 +41,7 @@ public class RouterService {
     private final Catalog catalog;
     private final SupplierSetRanker ranker;
 
-    public RouterService(Catalog catalog, SupplierSetRanker ranker) {
+    public RouterService(Catalog catalog, SupplierSetRanker ranker, MeterRegistry meterRegistry) {
         this.catalog = catalog;
         this.ranker = ranker;
     }
