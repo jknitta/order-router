@@ -311,9 +311,11 @@ class RouterServiceTest {
 
         service.route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
 
-        // 3 distinct candidates; 3 single suppliers tried, then 3 pairs, and a pair covers the order.
+        // 3 distinct candidates. One supplier can never cover 6 categories (the best covers 4), so size 1 is skipped.
+        // For pairs the search tries SUP-001 then SUP-002 on the first category (cane), and SUP-002 then SUP-001/003 on
+        // the next uncovered one: 5 steps, and SUP-002 + SUP-003 covers the order.
         assertThat(registry.get("router.search.candidates").summary().totalAmount()).isEqualTo(3);
-        assertThat(registry.get("router.search.combinations").summary().totalAmount()).isEqualTo(6);
+        assertThat(registry.get("router.search.combinations").summary().totalAmount()).isEqualTo(5);
         assertThat(registry.get("router.search.suppliers").summary().totalAmount()).isEqualTo(2);
     }
 
