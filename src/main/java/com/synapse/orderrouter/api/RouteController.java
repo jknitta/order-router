@@ -1,8 +1,8 @@
 package com.synapse.orderrouter.api;
 
-import com.synapse.orderrouter.routing.RouteRequest;
-import com.synapse.orderrouter.routing.RouteResponse;
 import com.synapse.orderrouter.routing.RouterService;
+import com.synapse.orderrouter.routing.RoutingResult.Routed;
+import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
 import java.util.List;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -28,13 +28,16 @@ public class RouteController {
     public RouteResponse route(@RequestBody RouteRequest request) {
         List<String> errors = validator.validate(request);
         if (!errors.isEmpty()) {
-            return new RouteResponse(false, null, errors);
+            return RouteResponse.failure(errors);
         }
-        return router.route(request);
+        return switch (router.route(request.toOrder())) {
+            case Routed routed -> RouteResponse.success(routed.plan());
+            case Unroutable unroutable -> RouteResponse.failure(unroutable.errors());
+        };
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public RouteResponse unreadableBody() {
-        return new RouteResponse(false, null, List.of("Request body must be valid JSON in the documented format."));
+        return RouteResponse.failure(List.of("Request body must be valid JSON in the documented format."));
     }
 }

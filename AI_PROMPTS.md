@@ -93,3 +93,26 @@ Project organization
 - I want the project to make use of Java packages. The flat structure is messy to me.
 
 Make these changes first for my ease of review and then I'll continue.
+
+### Prompt 10
+
+I have about 1.5 hours left.
+
+More review:
+
+RouterService
+- not convinced that toResponse makes sense here. This adds logic to the service layer that could feasibly be used by other parts of this system that is tied to RouteController.
+- a walkthrough by you would be welcome
+
+### Prompt 11
+
+1. Option B works. You're great at generating code so even if it touches a lot of tests I'm good. I want clean separation of concerns.
+2. We'll see how long everything actually takes. You're faster than you think.
+
+Back to the bitmasks. The latent bug makes this approach unfeasible when we need to handle incredibly large databases. Plus debugging that sounds like a beast. It's also more difficult to describe. I think another approach that is more human-readable would be better and easier to walk through. This block is not something I'm used to for example:
+
+for (int i = 0; i < items.size(); i++) {
+                if (supplier.categories().contains(items.get(i).category())) {
+                    coverage |= 1 << i;
+                }
+            }

@@ -1,14 +1,18 @@
 package com.synapse.orderrouter.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.groups.Tuple.tuple;
 
 import com.synapse.orderrouter.catalog.Catalog;
 import com.synapse.orderrouter.catalog.ServiceArea;
 import com.synapse.orderrouter.catalog.Supplier;
-import com.synapse.orderrouter.routing.RouteRequest.LineItem;
-import com.synapse.orderrouter.routing.RouteResponse.ShipmentItem;
-import com.synapse.orderrouter.routing.RouteResponse.SupplierShipment;
+import com.synapse.orderrouter.routing.Plan.Assignment;
+import com.synapse.orderrouter.routing.RoutingResult.Routed;
+import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,134 +36,162 @@ class RouterServiceTest {
                 Set.of(categories.split(",")), score, canMail);
     }
 
-    private static RouteResponse route(RouteRequest request, Supplier... suppliers) {
-        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker()).route(request);
+    private static RoutingResult route(Order order, Supplier... suppliers) {
+        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker())
+                .route(order);
     }
 
-    private static RouteRequest order(boolean mailOrder, String... productCodes) {
-        List<LineItem> items = Arrays.stream(productCodes).map(code -> new LineItem(code, 1)).toList();
-        return new RouteRequest("ORD-T", ZIP, mailOrder, items);
+    private static Order order(boolean mailOrder, String... productCodes) {
+        List<Order.Line> lines = Arrays.stream(productCodes).map(code -> new Order.Line(code, 1)).toList();
+        return new Order(ZIP, mailOrder, lines);
     }
 
-    private static SupplierShipment shipmentOf(RouteResponse response, String supplierId) {
-        return response.routing().stream()
-                .filter(s -> s.supplierId().equals(supplierId))
-                .findFirst()
-                .orElseThrow(() -> new AssertionError("no shipment from " + supplierId));
+    private static Plan planOf(RoutingResult result) {
+        assertThat(result).isInstanceOf(Routed.class);
+        return ((Routed) result).plan();
     }
 
-    private static List<String> supplierIds(RouteResponse response) {
-        return response.routing().stream().map(SupplierShipment::supplierId).toList();
+    private static List<String> errorsOf(RoutingResult result) {
+        assertThat(result).isInstanceOf(Unroutable.class);
+        return ((Unroutable) result).errors();
+    }
+
+    /** The ids of the suppliers in the chosen plan, in id order. */
+    private static List<String> supplierIds(RoutingResult result) {
+        return planOf(result).suppliers().stream().map(Supplier::id).toList();
+    }
+
+    private static List<Assignment> assignmentsOf(RoutingResult result, String supplierId) {
+        return planOf(result).assignments().stream()
+                .filter(a -> a.supplier().id().equals(supplierId))
+                .toList();
     }
 
     // --- eligibility ---
 
     @Test
     void whenNotMailOrderASupplierThatDoesNotServeTheZipIsNeverChosen() {
-        RouteResponse response = route(order(false, "P-CANE"),
+        RoutingResult result = route(order(false, "P-CANE"),
                 supplier("SUP-001", ELSEWHERE, "cane", 10, true),
                 supplier("SUP-002", ZIP, "cane", 5, false));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-002");
+        assertThat(supplierIds(result)).containsExactly("SUP-002");
     }
 
     @Test
-    void whenNotMailOrderAndNobodyServesTheZipTheOrderIsInfeasible() {
-        RouteResponse response = route(order(false, "P-CANE"),
+    void whenNotMailOrderAndNobodyServesTheZipTheOrderIsUnroutable() {
+        RoutingResult result = route(order(false, "P-CANE"),
                 supplier("SUP-001", ELSEWHERE, "cane", 10, true));
 
-        assertThat(response.feasible()).isFalse();
+        assertThat(result).isInstanceOf(Unroutable.class);
     }
 
     @Test
     void whenMailOrderASupplierOutsideTheZipThatShipsIsEligible() {
-        RouteResponse response = route(order(true, "P-CANE"),
+        RoutingResult result = route(order(true, "P-CANE"),
                 supplier("SUP-001", ELSEWHERE, "cane", 7, true));
 
-        assertThat(response.feasible()).isTrue();
-        assertThat(supplierIds(response)).containsExactly("SUP-001");
+        assertThat(supplierIds(result)).containsExactly("SUP-001");
     }
 
     @Test
     void whenMailOrderASupplierOutsideTheZipThatDoesNotShipIsNotEligible() {
-        RouteResponse response = route(order(true, "P-CANE"),
+        RoutingResult result = route(order(true, "P-CANE"),
                 supplier("SUP-001", ELSEWHERE, "cane", 7, false));
 
-        assertThat(response.feasible()).isFalse();
+        assertThat(result).isInstanceOf(Unroutable.class);
     }
 
     @Test
     void aSupplierMustHandleTheItemsCategory() {
-        RouteResponse response = route(order(false, "P-CANE", "P-OXY"),
+        RoutingResult result = route(order(false, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane", 7, false));
 
-        assertThat(response.feasible()).isFalse();
+        assertThat(result).isInstanceOf(Unroutable.class);
     }
 
     @Test
     void anItemNoSupplierCanHandleFailsTheWholeOrderAndIsNamed() {
-        RouteResponse response = route(order(false, "P-CANE", "P-OXY"),
+        RoutingResult result = route(order(false, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane", 7, false));
 
-        assertThat(response.feasible()).isFalse();
-        assertThat(response.routing()).isNull();
-        assertThat(response.errors()).hasSize(1);
-        assertThat(response.errors().get(0)).contains("P-OXY");
+        assertThat(errorsOf(result)).hasSize(1);
+        assertThat(errorsOf(result).get(0)).contains("P-OXY");
     }
 
     // --- fewest shipments ---
 
     @Test
     void oneSupplierCoveringEverythingBeatsTwoEvenIfTheTwoAreRatedHigher() {
-        RouteResponse response = route(order(false, "P-CANE", "P-OXY"),
+        RoutingResult result = route(order(false, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane,oxygen", 5, false),
                 supplier("SUP-002", ZIP, "cane", 9, false),
                 supplier("SUP-003", ZIP, "oxygen", 9, false));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-001");
+        assertThat(supplierIds(result)).containsExactly("SUP-001");
     }
 
     @Test
     void whenNoSingleSupplierCoversTheOrderTheMinimumNumberOfSuppliersIsUsed() {
         // Items 1-6. A greedy pick of the biggest supplier (SUP-001, items 1-4) first would end up with 3 shipments.
         // The minimum is 2: SUP-002 (1,3,5) + SUP-003 (2,4,6).
-        RouteResponse response = route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"),
+        RoutingResult result = route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"),
                 supplier("SUP-001", ZIP, "cane,cpap,oxygen,wheelchair", 7, false),
                 supplier("SUP-002", ZIP, "cane,oxygen,walker", 7, false),
                 supplier("SUP-003", ZIP, "cpap,wheelchair,commode", 7, false));
 
-        assertThat(supplierIds(response)).containsExactlyInAnyOrder("SUP-002", "SUP-003");
+        assertThat(supplierIds(result)).containsExactly("SUP-002", "SUP-003");
     }
 
     @Test
     void duplicateLinesForTheSameProductAreSummed() {
-        RouteRequest request = new RouteRequest("ORD-T", ZIP, false,
-                List.of(new LineItem("P-CANE", 1), new LineItem("P-CANE", 2)));
+        Order order = new Order(ZIP, false, List.of(new Order.Line("P-CANE", 1), new Order.Line("P-CANE", 2)));
 
-        RouteResponse response = route(request, supplier("SUP-001", ZIP, "cane", 7, false));
+        RoutingResult result = route(order, supplier("SUP-001", ZIP, "cane", 7, false));
 
-        assertThat(shipmentOf(response, "SUP-001").items()).extracting(ShipmentItem::productCode, ShipmentItem::quantity)
-                .containsExactly(org.assertj.core.groups.Tuple.tuple("P-CANE", 3));
+        assertThat(assignmentsOf(result, "SUP-001"))
+                .extracting(Assignment::productCode, Assignment::quantity)
+                .containsExactly(tuple("P-CANE", 3));
+    }
+
+    @Test
+    void ordersWithMoreThan32DistinctItemsAreRoutedCorrectly() {
+        // Regression: the first implementation tracked items as bits of an int, which breaks past 32 items.
+        Map<String, String> products = new HashMap<>();
+        Set<String> categories = new HashSet<>();
+        List<Order.Line> lines = new ArrayList<>();
+        for (int i = 0; i < 40; i++) {
+            products.put("P-" + i, "category-" + i);
+            categories.add("category-" + i);
+            lines.add(new Order.Line("P-" + i, 1));
+        }
+        Supplier everything = new Supplier("SUP-001", "Name SUP-001", ServiceArea.parse(ZIP), categories, 7, false);
+
+        RoutingResult result = new RouterService(new Catalog(List.of(everything), products),
+                new DefaultSupplierSetRanker()).route(new Order(ZIP, false, lines));
+
+        assertThat(supplierIds(result)).containsExactly("SUP-001");
+        assertThat(assignmentsOf(result, "SUP-001")).hasSize(40);
     }
 
     // --- quality, local preference, tie-breaks (single supplier) ---
 
     @Test
     void higherScoreWinsAmongSingleSupplierOptions() {
-        RouteResponse response = route(order(false, "P-CANE"),
+        RoutingResult result = route(order(false, "P-CANE"),
                 supplier("SUP-001", ZIP, "cane", 6, false),
                 supplier("SUP-002", ZIP, "cane", 8, false));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-002");
+        assertThat(supplierIds(result)).containsExactly("SUP-002");
     }
 
     @Test
     void unratedSupplierRanksBelowASevenButAboveAFour() {
         Supplier unrated = supplier("SUP-001", ZIP, "cane", Supplier.UNRATED_SCORE, false);
 
-        RouteResponse againstSeven = route(order(false, "P-CANE"), unrated,
+        RoutingResult againstSeven = route(order(false, "P-CANE"), unrated,
                 supplier("SUP-002", ZIP, "cane", 7, false));
-        RouteResponse againstFour = route(order(false, "P-CANE"), unrated,
+        RoutingResult againstFour = route(order(false, "P-CANE"), unrated,
                 supplier("SUP-002", ZIP, "cane", 4, false));
 
         assertThat(supplierIds(againstSeven)).containsExactly("SUP-002");
@@ -168,29 +200,29 @@ class RouterServiceTest {
 
     @Test
     void exactScoreTieGoesToTheLocalSupplierEvenWithAHigherId() {
-        RouteResponse response = route(order(true, "P-CANE"),
+        RoutingResult result = route(order(true, "P-CANE"),
                 supplier("SUP-001", ELSEWHERE, "cane", 7, true),
                 supplier("SUP-002", ZIP, "cane", 7, false));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-002");
+        assertThat(supplierIds(result)).containsExactly("SUP-002");
     }
 
     @Test
     void scoresThatDifferEvenSlightlyAreNotATie() {
-        RouteResponse response = route(order(true, "P-CANE"),
+        RoutingResult result = route(order(true, "P-CANE"),
                 supplier("SUP-001", ZIP, "cane", 6.9, false),
                 supplier("SUP-002", ELSEWHERE, "cane", 7.0, true));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-002");
+        assertThat(supplierIds(result)).containsExactly("SUP-002");
     }
 
     @Test
     void aFullTieGoesToTheLowestSupplierIdRegardlessOfInputOrder() {
-        RouteResponse response = route(order(false, "P-CANE"),
+        RoutingResult result = route(order(false, "P-CANE"),
                 supplier("SUP-002", ZIP, "cane", 7, false),
                 supplier("SUP-001", ZIP, "cane", 7, false));
 
-        assertThat(supplierIds(response)).containsExactly("SUP-001");
+        assertThat(supplierIds(result)).containsExactly("SUP-001");
     }
 
     // --- ranking of equally small supplier sets ---
@@ -198,70 +230,69 @@ class RouterServiceTest {
     @Test
     void equallySmallSetsAreRankedByHigherAverageScore() {
         // Four 2-supplier covers. 001+004 has the best average (8.5); the lowest-id cover 001+002 averages only 7.
-        RouteResponse response = route(order(false, "P-CANE", "P-OXY"),
+        RoutingResult result = route(order(false, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane", 9, false),
                 supplier("SUP-002", ZIP, "oxygen", 5, false),
                 supplier("SUP-003", ZIP, "cane", 8, false),
                 supplier("SUP-004", ZIP, "oxygen", 8, false));
 
-        assertThat(supplierIds(response)).containsExactlyInAnyOrder("SUP-001", "SUP-004");
+        assertThat(supplierIds(result)).containsExactly("SUP-001", "SUP-004");
     }
 
     @Test
     void whenAveragesTieTheSetWithMoreLocalItemsWins() {
         // Every score is 7, so every cover averages 7. Only 005+006 has both items local, despite higher ids.
-        RouteResponse response = route(order(true, "P-CANE", "P-OXY"),
+        RoutingResult result = route(order(true, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ELSEWHERE, "cane", 7, true),
                 supplier("SUP-002", ELSEWHERE, "oxygen", 7, true),
                 supplier("SUP-005", ZIP, "cane", 7, false),
                 supplier("SUP-006", ZIP, "oxygen", 7, false));
 
-        assertThat(supplierIds(response)).containsExactlyInAnyOrder("SUP-005", "SUP-006");
+        assertThat(supplierIds(result)).containsExactly("SUP-005", "SUP-006");
     }
 
     @Test
     void anItemEitherSupplierInTheChosenSetCouldTakeGoesToTheHigherRated() {
         // SUP-001 (cane, oxygen) and SUP-002 (oxygen, wheelchair) are the only 2-supplier cover.
-        RouteResponse response = route(order(false, "P-CANE", "P-OXY", "P-WC"),
+        RoutingResult result = route(order(false, "P-CANE", "P-OXY", "P-WC"),
                 supplier("SUP-001", ZIP, "cane,oxygen", 6, false),
                 supplier("SUP-002", ZIP, "oxygen,wheelchair", 9, false));
 
-        assertThat(shipmentOf(response, "SUP-001").items()).extracting(ShipmentItem::productCode)
+        assertThat(assignmentsOf(result, "SUP-001")).extracting(Assignment::productCode)
                 .containsExactly("P-CANE");
-        assertThat(shipmentOf(response, "SUP-002").items()).extracting(ShipmentItem::productCode)
+        assertThat(assignmentsOf(result, "SUP-002")).extracting(Assignment::productCode)
                 .containsExactlyInAnyOrder("P-OXY", "P-WC");
     }
 
-    // --- output shape ---
+    // --- what each assignment records ---
 
     @Test
-    void notMailOrderMarksEveryItemLocal() {
-        RouteResponse response = route(order(false, "P-CANE"),
+    void whenNotMailOrderEveryAssignmentIsLocal() {
+        RoutingResult result = route(order(false, "P-CANE"),
                 supplier("SUP-001", ZIP, "cane", 7, true));
 
-        assertThat(shipmentOf(response, "SUP-001").items()).extracting(ShipmentItem::fulfillmentMode)
-                .containsExactly("local");
+        assertThat(assignmentsOf(result, "SUP-001")).extracting(Assignment::local).containsExactly(true);
     }
 
     @Test
-    void mailOrderMarksItemsLocalWhenTheSupplierServesTheZipAndMailOrderOtherwise() {
-        RouteResponse response = route(order(true, "P-CANE", "P-OXY"),
+    void whenMailOrderAnAssignmentIsLocalOnlyIfTheSupplierServesTheZip() {
+        RoutingResult result = route(order(true, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane", 7, false),
                 supplier("SUP-002", ELSEWHERE, "oxygen", 7, true));
 
-        assertThat(shipmentOf(response, "SUP-001").items().get(0).fulfillmentMode()).isEqualTo("local");
-        assertThat(shipmentOf(response, "SUP-002").items().get(0).fulfillmentMode()).isEqualTo("mail_order");
+        assertThat(assignmentsOf(result, "SUP-001").get(0).local()).isTrue();
+        assertThat(assignmentsOf(result, "SUP-002").get(0).local()).isFalse();
     }
 
     @Test
-    void shipmentCarriesSupplierNameAndEachItemItsCategory() {
-        RouteResponse response = route(order(false, "P-CANE"),
-                supplier("SUP-001", ZIP, "cane", 7, false));
+    void eachAssignmentCarriesItsSupplierCategoryAndQuantity() {
+        Order order = new Order(ZIP, false, List.of(new Order.Line("P-CANE", 2)));
 
-        assertThat(response.feasible()).isTrue();
-        assertThat(response.errors()).isNull();
-        SupplierShipment shipment = shipmentOf(response, "SUP-001");
-        assertThat(shipment.supplierName()).isEqualTo("Name SUP-001");
-        assertThat(shipment.items()).extracting(ShipmentItem::category).containsExactly("cane");
+        RoutingResult result = route(order, supplier("SUP-001", ZIP, "cane", 7, false));
+
+        assertThat(assignmentsOf(result, "SUP-001"))
+                .extracting(a -> a.supplier().name(), Assignment::productCode, Assignment::category,
+                        Assignment::quantity)
+                .containsExactly(tuple("Name SUP-001", "P-CANE", "cane", 2));
     }
 }
