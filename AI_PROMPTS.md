@@ -57,3 +57,9 @@ RouteRequestValidatorTest - good
 RouterServiceTest - good
 
 ServiceAreaTest - good
+
+8. 1. Fine for MVP, especially since my thought is the desired post-MVP to track who won the tie most recently
+2. Yes enhance the tests with real sample orders
+3. Yes
+
+And yes we should always be deterministic about the line item we want in the tests so update the lookups for names, scores, etc. by id
