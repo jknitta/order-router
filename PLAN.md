@@ -52,4 +52,5 @@ Status: planning. No code written. Waiting on the open items below.
 ## Future initiatives
 - **Clean Data initiative:** normalize `suppliers.csv` and `products.csv` at the source (ZIP leading zeros, category casing, header typo, duplicate product rows) so the router does not need to compensate.
 - **Supplier fairness:** the tie-break is lowest `supplier_id` for simplicity. This favors early IDs. A later improvement should track which suppliers were selected most recently and rotate. Suppliers need to be happy in the network as much as customers.
+- **Partial order fulfillment:** the spec is all-or-nothing (`feasible` is binary). Returning the routable items plus the unroutable ones is out of MVP scope.
 - **"Similar" ratings:** currently an exact match. Revisit if it proves too strict.

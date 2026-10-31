@@ -27,3 +27,20 @@ Not sure where the other letters went, that last list of questions was labeled c
 
 4. B. yes midpoint between is good
 E. left pad
+
+5. ServiceArea (unit)
+- If there's a negative zip, that should also be ignored
+
+CatalogLoader - good
+
+Validation (all return HTTP 200, feasible: false)
+- Wnat to clarify your understanding. We can validate up front with this validator, but some of the feasibility will rely on the results of the routing analysis.
+- I also want to ensure that we're on the same page. The API spec does not leave room for partial fulfillment. It looks like a binary all or nothing to me. I think it would be another future enhancement note to handle partial order fulfillment, but this doesn't look like the scope of MVP.
+- If we're on the same page, these tests look good.
+
+Routing - good
+
+API and integration
+- 39. we already decided that it will be 200 with feasible: false. The error reason will describe why
+
+Good set to start. We'll see if we need to add coverage as we go along.
