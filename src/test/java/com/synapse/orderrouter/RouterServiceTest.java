@@ -30,7 +30,7 @@ class RouterServiceTest {
     }
 
     private static RouteResponse route(RouteRequest request, Supplier... suppliers) {
-        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS)).route(request);
+        return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker()).route(request);
     }
 
     private static RouteRequest order(boolean mailOrder, String... productCodes) {
@@ -194,21 +194,22 @@ class RouterServiceTest {
 
     @Test
     void equallySmallSetsAreRankedByHigherAverageScore() {
+        // Four 2-supplier covers. 001+004 has the best average (8.5); the lowest-id cover 001+002 averages only 7.
         RouteResponse response = route(order(false, "P-CANE", "P-OXY"),
                 supplier("SUP-001", ZIP, "cane", 9, false),
                 supplier("SUP-002", ZIP, "oxygen", 5, false),
                 supplier("SUP-003", ZIP, "cane", 8, false),
                 supplier("SUP-004", ZIP, "oxygen", 8, false));
 
-        assertThat(supplierIds(response)).containsExactlyInAnyOrder("SUP-003", "SUP-004");
+        assertThat(supplierIds(response)).containsExactlyInAnyOrder("SUP-001", "SUP-004");
     }
 
     @Test
     void whenAveragesTieTheSetWithMoreLocalItemsWins() {
-        // Both sets average 7. The lower-id set has one non-local supplier, so the all-local set wins.
+        // Every score is 7, so every cover averages 7. Only 005+006 has both items local, despite higher ids.
         RouteResponse response = route(order(true, "P-CANE", "P-OXY"),
-                supplier("SUP-001", ZIP, "cane", 8, false),
-                supplier("SUP-002", ELSEWHERE, "oxygen", 6, true),
+                supplier("SUP-001", ELSEWHERE, "cane", 7, true),
+                supplier("SUP-002", ELSEWHERE, "oxygen", 7, true),
                 supplier("SUP-005", ZIP, "cane", 7, false),
                 supplier("SUP-006", ZIP, "oxygen", 7, false));
 

@@ -24,6 +24,13 @@ class CatalogLoaderTest {
 
     private final Catalog catalog = CatalogLoader.load(new StringReader(SUPPLIERS), new StringReader(PRODUCTS));
 
+    private Supplier supplier(String id) {
+        return catalog.suppliers().stream()
+                .filter(s -> s.id().equals(id))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("no supplier " + id));
+    }
+
     @Test
     void readsSupplierNameDespiteTypoInHeader() {
         assertThat(catalog.suppliers()).extracting(Supplier::name)
@@ -32,8 +39,8 @@ class CatalogLoaderTest {
 
     @Test
     void categoriesAreTrimmedAndLowercased() {
-        assertThat(catalog.suppliers().get(0).categories()).containsExactlyInAnyOrder("knee scooter", "cpap");
-        assertThat(catalog.suppliers().get(1).categories()).containsExactly("cane");
+        assertThat(supplier("SUP-001").categories()).containsExactlyInAnyOrder("knee scooter", "cpap");
+        assertThat(supplier("SUP-002").categories()).containsExactly("cane");
     }
 
     @Test
@@ -51,8 +58,9 @@ class CatalogLoaderTest {
 
     @Test
     void serviceAreaIsParsedForEachSupplier() {
-        assertThat(catalog.suppliers().get(0).area().serves("11419")).isTrue();
-        assertThat(catalog.suppliers().get(1).area().serves("02130")).isTrue();
+        assertThat(supplier("SUP-001").area().serves("11419")).isTrue();
+        assertThat(supplier("SUP-001").area().serves("11420")).isFalse();
+        assertThat(supplier("SUP-002").area().serves("02130")).isTrue();
     }
 
     @Test

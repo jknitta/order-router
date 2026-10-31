@@ -46,3 +46,14 @@ API and integration
 Good set to start. We'll see if we need to add coverage as we go along.
 
 6. Just installed Java and Maven. I need docker, but is it safer to just podman for licensing reasons?
+
+7. CatalogLoaderTest
+- categoriesAreTrimmedAndLowercased, serviceAreaIsParsedForEachSupplier - index based lookup is brittle. better to get by order id
+
+RouteApiTest - good
+
+RouteRequestValidatorTest - good
+
+RouterServiceTest - good
+
+ServiceAreaTest - good
