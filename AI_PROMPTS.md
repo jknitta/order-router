@@ -1,8 +1,12 @@
 # AI Prompts
 
-1. Review CLAUDE.md file and compare it to the files in this project. Tell me where there are discrepancies and ask questions before we begin.
+### Prompt 1
 
-2. 1. Maven
+Review CLAUDE.md file and compare it to the files in this project. Tell me where there are discrepancies and ask questions before we begin.
+
+### Prompt 2
+
+1. Maven
 2. 21
 3. Yes both
 4. This feels like a pure business decision and my tendency to want to give newcomers a shot leads me to want to treat them as neutral. Happy to discuss the pros and cons of this approach
@@ -18,17 +22,23 @@
 14. yes 400 for non-positive, and duplicate lines become additive
 15. absolutely. our dev flow is going to be red-green-refactor so tests first that I review and then implmentation
 
-3. A. option 1, I forgot about that detail in spec
+### Prompt 3
+
+A. option 1, I forgot about that detail in spec
 5/F. Comparator okay, but we need to make it easy to replace with a real rules engine should the need arise later
 C. Yes if there are truly orders with no eligible supplier, then feasible is false
 D. fair proposal
 
 Not sure where the other letters went, that last list of questions was labeled confusingly
 
-4. B. yes midpoint between is good
+### Prompt 4
+
+B. yes midpoint between is good
 E. left pad
 
-5. ServiceArea (unit)
+### Prompt 5
+
+ServiceArea (unit)
 - If there's a negative zip, that should also be ignored
 
 CatalogLoader - good
@@ -45,9 +55,13 @@ API and integration
 
 Good set to start. We'll see if we need to add coverage as we go along.
 
-6. Just installed Java and Maven. I need docker, but is it safer to just podman for licensing reasons?
+### Prompt 6
 
-7. CatalogLoaderTest
+Just installed Java and Maven. I need docker, but is it safer to just podman for licensing reasons?
+
+### Prompt 7
+
+CatalogLoaderTest
 - categoriesAreTrimmedAndLowercased, serviceAreaIsParsedForEachSupplier - index based lookup is brittle. better to get by order id
 
 RouteApiTest - good
@@ -58,8 +72,24 @@ RouterServiceTest - good
 
 ServiceAreaTest - good
 
-8. 1. Fine for MVP, especially since my thought is the desired post-MVP to track who won the tie most recently
+### Prompt 8
+
+1. Fine for MVP, especially since my thought is the desired post-MVP to track who won the tie most recently
 2. Yes enhance the tests with real sample orders
 3. Yes
 
 And yes we should always be deterministic about the line item we want in the tests so update the lookups for names, scores, etc. by id
+
+### Prompt 9
+
+AI_PROMPTS.md
+- I prefer each prompt in AI_PROMPTS.md to have it's own section. The ordered list renders confusingly when the prompt itself has numbers in it. Prefer a low profile header size like h3 or so
+
+README.md
+- Known limits and future work - let's treat this internally as a checklist of things that you and I can continue to improve within the time limit that I have for this project.
+- We should work on logging, performance metrics instrumentation, performance tests, GH pages Mkdocs site, documentation, CLAUDE.md and skills to enforce standards in the project, code linting, at least in addition to what is already there. Add these and give a best guess estimate for impact and LOE for each item so we can tackle the highest impact, lowest effort items first
+
+Project organization
+- I want the project to make use of Java packages. The flat structure is messy to me.
+
+Make these changes first for my ease of review and then I'll continue.
