@@ -124,3 +124,11 @@ Start with logging
 ### Prompt 13
 
 yes these are good. i was unfamiliar with the OutputCaptureExtension.class extension so that's cool. But I want to be opinionated about the implementation. I prefer that we use a logback with slf4j interface
+
+### Prompt 14
+
+Yes prevent fake log lines, write the test
+
+rebuild container
+
+yes take on linting

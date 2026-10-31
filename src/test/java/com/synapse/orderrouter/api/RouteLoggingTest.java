@@ -79,4 +79,26 @@ class RouteLoggingTest {
         assertThat(output).contains("WARN", "Unreadable request body");
         assertThat(output).doesNotContain("secret-body-text");
     }
+
+    @Test
+    void controlCharactersInTheOrderIdCannotForgeLogLines(CapturedOutput output) throws Exception {
+        postOrder("""
+                {"order_id": "ORD-EVIL\\nFORGED-LINE feasible=true", "customer_zip": "10015", "mail_order": false,
+                 "items": []}
+                """);
+
+        assertThat(output).contains("order_id=ORD-EVIL_FORGED-LINE");
+        assertThat(output.getAll().lines()).noneMatch(line -> line.startsWith("FORGED-LINE"));
+    }
+
+    @Test
+    void controlCharactersInAnErrorMessageCannotForgeLogLines(CapturedOutput output) throws Exception {
+        postOrder("""
+                {"order_id": "ORD-LOG-5", "customer_zip": "10015", "mail_order": false,
+                 "items": [{"product_code": "BAD\\r\\nFORGED-CODE-LINE", "quantity": 1}]}
+                """);
+
+        assertThat(output).contains("order_id=ORD-LOG-5", "Unknown product code: BAD__FORGED-CODE-LINE");
+        assertThat(output.getAll().lines()).noneMatch(line -> line.startsWith("FORGED-CODE-LINE"));
+    }
 }
