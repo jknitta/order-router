@@ -39,7 +39,7 @@ class RouterServiceTest {
 
     private static RoutingResult route(Order order, Supplier... suppliers) {
         return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker(),
-                new SimpleMeterRegistry()).route(order);
+                new SimpleMeterRegistry(), SearchTimeout.disabled()).route(order);
     }
 
     private static Order order(boolean mailOrder, String... productCodes) {
@@ -169,7 +169,8 @@ class RouterServiceTest {
         Supplier everything = new Supplier("SUP-001", "Name SUP-001", ServiceArea.parse(ZIP), categories, 7, false);
 
         RoutingResult result = new RouterService(new Catalog(List.of(everything), products),
-                new DefaultSupplierSetRanker(), new SimpleMeterRegistry()).route(new Order(ZIP, false, lines));
+                new DefaultSupplierSetRanker(), new SimpleMeterRegistry(), SearchTimeout.disabled())
+                .route(new Order(ZIP, false, lines));
 
         assertThat(supplierIds(result)).containsExactly("SUP-001");
         assertThat(assignmentsOf(result, "SUP-001")).hasSize(40);
@@ -306,7 +307,7 @@ class RouterServiceTest {
                 supplier("SUP-001", ZIP, "cane,cpap,oxygen,wheelchair", 7, false),
                 supplier("SUP-002", ZIP, "cane,oxygen,walker", 7, false),
                 supplier("SUP-003", ZIP, "cpap,wheelchair,commode", 7, false)), PRODUCTS),
-                new DefaultSupplierSetRanker(), registry);
+                new DefaultSupplierSetRanker(), registry, SearchTimeout.disabled());
 
         service.route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
 
@@ -321,10 +322,39 @@ class RouterServiceTest {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         RouterService service = new RouterService(
                 new Catalog(List.of(supplier("SUP-001", ZIP, "cane", 7, false)), PRODUCTS),
-                new DefaultSupplierSetRanker(), registry);
+                new DefaultSupplierSetRanker(), registry, SearchTimeout.disabled());
 
         service.route(order(false, "P-OXY"));
 
         assertThat(registry.get("router.search.combinations").summary().count()).isZero();
+    }
+
+    // --- timeout ---
+
+    private static RoutingResult routeWithTimeout(SearchTimeout timeout) {
+        // Needs two suppliers, so the search has to run past its first combination.
+        return new RouterService(new Catalog(List.of(
+                supplier("SUP-001", ZIP, "cane,cpap,oxygen,wheelchair", 7, false),
+                supplier("SUP-002", ZIP, "cane,oxygen,walker", 7, false),
+                supplier("SUP-003", ZIP, "cpap,wheelchair,commode", 7, false)), PRODUCTS),
+                new DefaultSupplierSetRanker(), new SimpleMeterRegistry(), timeout)
+                .route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
+    }
+
+    @Test
+    void aSearchThatOutlastsTheTimeoutIsReportedAsTimedOut() {
+        assertThat(routeWithTimeout(new SearchTimeout(true, java.time.Duration.ZERO)))
+                .isInstanceOf(RoutingResult.TimedOut.class);
+    }
+
+    @Test
+    void aDisabledTimeoutNeverStopsASearch() {
+        assertThat(routeWithTimeout(new SearchTimeout(false, java.time.Duration.ZERO))).isInstanceOf(Routed.class);
+    }
+
+    @Test
+    void aGenerousTimeoutDoesNotAffectANormalOrder() {
+        assertThat(routeWithTimeout(new SearchTimeout(true, java.time.Duration.ofSeconds(10))))
+                .isInstanceOf(Routed.class);
     }
 }

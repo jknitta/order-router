@@ -48,7 +48,8 @@ public class RouterService {
     private final DistributionSummary combinationsExamined;
     private final DistributionSummary suppliersInPlan;
 
-    public RouterService(Catalog catalog, SupplierSetRanker ranker, MeterRegistry meterRegistry) {
+    public RouterService(Catalog catalog, SupplierSetRanker ranker, MeterRegistry meterRegistry,
+            SearchTimeout timeout) {
         this.catalog = catalog;
         this.ranker = ranker;
         this.candidateGroups = DistributionSummary.builder("router.search.candidates")

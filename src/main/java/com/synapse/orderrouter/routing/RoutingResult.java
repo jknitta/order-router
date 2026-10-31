@@ -10,4 +10,8 @@ public sealed interface RoutingResult {
 
     record Unroutable(List<String> errors) implements RoutingResult {
     }
+
+    /** The search ran past the configured timeout, so no plan was produced. */
+    record TimedOut() implements RoutingResult {
+    }
 }

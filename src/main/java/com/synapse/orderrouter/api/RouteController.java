@@ -4,6 +4,7 @@ import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.Plan;
 import com.synapse.orderrouter.routing.RouterService;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
+import com.synapse.orderrouter.routing.RoutingResult.TimedOut;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
@@ -25,6 +26,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 public class RouteController {
+
+    private static final String TIMEOUT_MESSAGE = "Order could not be routed within the time limit.";
 
     private static final Logger LOG = LoggerFactory.getLogger(RouteController.class);
 
@@ -50,6 +53,12 @@ public class RouteController {
             case Routed routed -> {
                 logRouted(request, routed.plan(), recordOutcome("routed", startNanos));
                 yield RouteResponse.success(routed.plan());
+            }
+            case TimedOut timedOut -> {
+                long durationMillis = recordOutcome("timeout", startNanos);
+                LOG.warn("Timed out order_id={} feasible=false reason=timeout duration_ms={}",
+                        loggable(request.orderId()), durationMillis);
+                yield RouteResponse.failure(List.of(TIMEOUT_MESSAGE));
             }
             case Unroutable unroutable -> {
                 logRejected(request, "unroutable", unroutable.errors(), recordOutcome("unroutable", startNanos));

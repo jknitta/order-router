@@ -161,3 +161,7 @@ I have about 45 minutes now and we should finish as much as we can to make this 
 
 1. Yes B then A, but tell me what your plan is for the performance test first
 2. I don't want Option D at all. I would rather handle long-running queries via configurable timeouts
+
+### Prompt 20
+
+You underestimate how much you can do. But yes follow the plan with an additional requirement to be able to enable or disable timeout feature by configuration
