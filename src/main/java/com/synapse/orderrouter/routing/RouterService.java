@@ -4,6 +4,7 @@ import com.synapse.orderrouter.catalog.Catalog;
 import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.Plan.Assignment;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
+import com.synapse.orderrouter.routing.RoutingResult.TimedOut;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -33,6 +34,14 @@ public class RouterService {
         }
     }
 
+    /** Thrown from deep inside the search when the timeout passes; caught in route(). Carries no stack trace. */
+    private static final class SearchTimedOut extends RuntimeException {
+
+        SearchTimedOut() {
+            super("Search timed out", null, false, false);
+        }
+    }
+
     private record SearchResult(Plan plan, int combinationsExamined) {
     }
 
@@ -44,6 +53,7 @@ public class RouterService {
 
     private final Catalog catalog;
     private final SupplierSetRanker ranker;
+    private final SearchTimeout timeout;
     private final DistributionSummary candidateGroups;
     private final DistributionSummary combinationsExamined;
     private final DistributionSummary suppliersInPlan;
@@ -52,6 +62,7 @@ public class RouterService {
             SearchTimeout timeout) {
         this.catalog = catalog;
         this.ranker = ranker;
+        this.timeout = timeout;
         this.candidateGroups = DistributionSummary.builder("router.search.candidates")
                 .description("Distinct supplier coverage groups searched per order").register(meterRegistry);
         this.combinationsExamined = DistributionSummary.builder("router.search.combinations")
@@ -70,7 +81,12 @@ public class RouterService {
             return new Unroutable(errors);
         }
         List<Candidate> distinctCandidates = bestPerCoverage(candidates);
-        SearchResult result = fewestSuppliersPlan(items, distinctCandidates);
+        SearchResult result;
+        try {
+            result = fewestSuppliersPlan(items, distinctCandidates, System.nanoTime());
+        } catch (SearchTimedOut e) {
+            return new TimedOut();
+        }
         candidateGroups.record(distinctCandidates.size());
         combinationsExamined.record(result.combinationsExamined());
         suppliersInPlan.record(result.plan().suppliers().size());
@@ -123,11 +139,11 @@ public class RouterService {
     }
 
     /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, with its best-ranked plan. */
-    private SearchResult fewestSuppliersPlan(List<Item> items, List<Candidate> candidates) {
+    private SearchResult fewestSuppliersPlan(List<Item> items, List<Candidate> candidates, long startNanos) {
         int examined = 0;
         for (int size = 1; size <= items.size(); size++) {
             List<Plan> plans = new ArrayList<>();
-            examined += collectCovers(items, candidates, 0, size, new ArrayDeque<>(), plans);
+            examined += collectCovers(items, candidates, 0, size, new ArrayDeque<>(), plans, startNanos);
             if (!plans.isEmpty()) {
                 return new SearchResult(plans.stream().min(ranker).orElseThrow(), examined);
             }
@@ -137,11 +153,12 @@ public class RouterService {
 
     /**
      * Adds a plan to the list for every group of `remaining` more candidates that, with `chosen`, covers the order.
-     * Returns how many complete combinations it looked at.
+     * Returns how many complete combinations it looked at. Stops with SearchTimedOut once the timeout has passed.
      */
     private int collectCovers(List<Item> items, List<Candidate> candidates, int start, int remaining,
-                               Deque<Candidate> chosen, List<Plan> plans) {
+            Deque<Candidate> chosen, List<Plan> plans, long startNanos) {
         if (remaining == 0) {
+            checkTimeout(startNanos);
             if (coversAll(items, chosen)) {
                 plans.add(assignItems(items, chosen));
             }
@@ -150,10 +167,16 @@ public class RouterService {
         int examined = 0;
         for (int i = start; i < candidates.size(); i++) {
             chosen.addLast(candidates.get(i));
-            examined += collectCovers(items, candidates, i + 1, remaining - 1, chosen, plans);
+            examined += collectCovers(items, candidates, i + 1, remaining - 1, chosen, plans, startNanos);
             chosen.removeLast();
         }
         return examined;
+    }
+
+    private void checkTimeout(long startNanos) {
+        if (timeout.enabled() && System.nanoTime() - startNanos >= timeout.duration().toNanos()) {
+            throw new SearchTimedOut();
+        }
     }
 
     private boolean coversAll(List<Item> items, Deque<Candidate> chosen) {

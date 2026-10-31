@@ -56,6 +56,10 @@ Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must incl
 
 Example: `curl localhost:8080/actuator/metrics/router.search.combinations`
 
+## Search timeout
+
+A supplier search that runs past `router.search.timeout.duration` (default `PT2S`) stops itself, and the order returns `feasible: false` with "Order could not be routed within the time limit." Nothing partial is returned. It is counted as `order.route` outcome `timeout` and logged as a warning. Set `router.search.timeout.enabled=false` to let every search run to completion. Either setting can be overridden through the environment, for example `ROUTER_SEARCH_TIMEOUT_DURATION=PT500MS`.
+
 ## Security and PHI handling
 
 This is a best-effort alignment with HIPAA's technical safeguards, not a compliance claim. A formal risk analysis is still required before this handles real patient data.
