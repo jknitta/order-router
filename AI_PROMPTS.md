@@ -24,3 +24,6 @@ C. Yes if there are truly orders with no eligible supplier, then feasible is fal
 D. fair proposal
 
 Not sure where the other letters went, that last list of questions was labeled confusingly
+
+4. B. yes midpoint between is good
+E. left pad

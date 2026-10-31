@@ -33,10 +33,11 @@ Status: planning. No code written. Waiting on the open items below.
 | 10 | Item with no eligible supplier | Whole order `feasible: false`, errors name the item |
 | 11 | Ranking among equally small supplier sets | 1) higher average score, 2) more items fulfilled locally, 3) lowest supplier IDs. Within a set, a shared item goes to the higher-rated supplier, then local, then lower ID |
 | 12 | Ranking mechanism | A single comparator over candidate supplier sets, behind a small interface so it can be swapped for a real rules engine later |
+| 13 | "No ratings yet" | Scored 5.5 (midpoint of 1-10), one named constant. Rated mean is 7.1 |
+| 14 | 4-digit `customer_zip` on an order | Left-pad to 5 digits, same rule as supplier data |
 
 ## Open items
-- B. "No ratings yet" score value. Author leans neutral. Recommendation: 5.5 (scale midpoint) as one named constant. Rated mean is 7.1.
-- E. 4-digit `customer_zip` on an order: pad to 5 digits (recommended, same rule as supplier data) or reject.
+(none) Next: author reviews the test list, then tests, then implementation.
 
 ## Implementation steps
 1. Scaffold: Maven project, Dockerfile, CSVs into resources, `.gitignore` for `target/`.
