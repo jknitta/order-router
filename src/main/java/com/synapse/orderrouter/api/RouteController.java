@@ -56,13 +56,19 @@ public class RouteController {
     private static void logRouted(RouteRequest request, Plan plan, long startNanos) {
         List<String> supplierIds = plan.suppliers().stream().map(Supplier::id).toList();
         log.info("Routed order_id={} feasible=true suppliers={} items={} mail_order={} duration_ms={}",
-                request.orderId(), supplierIds, plan.assignments().size(), request.mailOrder(),
+                loggable(request.orderId()), supplierIds, plan.assignments().size(), request.mailOrder(),
                 millisSince(startNanos));
     }
 
     private static void logRejected(RouteRequest request, String reason, List<String> errors, long startNanos) {
         log.info("Rejected order_id={} feasible=false reason={} errors={} duration_ms={}",
-                request.orderId(), reason, errors, millisSince(startNanos));
+                loggable(request.orderId()), reason, errors.stream().map(RouteController::loggable).toList(),
+                millisSince(startNanos));
+    }
+
+    /** Caller-supplied text must not be able to end a log line and start a fake one. */
+    private static String loggable(String text) {
+        return text == null ? null : text.replaceAll("\\p{Cntrl}", "_");
     }
 
     private static long millisSince(long startNanos) {
