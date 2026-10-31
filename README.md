@@ -127,5 +127,5 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 | 9 | [ ] | Supplier fairness | High (business) | ~1 hr | The lowest-ID tie-break always favors the same suppliers. Track which supplier won a tie most recently and rotate. Needs state, so persistence has to be decided. |
 | 10 | [ ] | Similar ratings | Low | ~15 min | Exact-match rule today. Revisit if it proves too strict. |
 | 11 | [ ] | Partial fulfillment | Med | ~1 hr | Return the routable items alongside the unroutable ones. The spec is all-or-nothing, so this goes beyond the MVP. |
-| 13 | [x] | Hardening pass | High | ~45 min | Catch-all error handling, null and fractional input rejected, health-only Actuator, non-root container, Dependabot and the Security and PHI section above. |
 | 12 | [ ] | GitHub Pages MkDocs site | Low-Med | ~1.25 hr | `mkdocs.yml`, content drawn from the README and #8, and a GitHub Actions publish workflow. Mostly presentation, so it comes last. |
+| 13 | [x] | Hardening pass | High | ~45 min | Catch-all error handling, null and fractional input rejected, health-only Actuator, non-root container, Dependabot and the Security and PHI section above. |
