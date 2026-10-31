@@ -10,8 +10,4 @@ public record SearchTimeout(boolean enabled, Duration duration) {
             throw new IllegalArgumentException("The search timeout must not be negative.");
         }
     }
-
-    public static SearchTimeout disabled() {
-        return new SearchTimeout(false, Duration.ofSeconds(2));
-    }
 }

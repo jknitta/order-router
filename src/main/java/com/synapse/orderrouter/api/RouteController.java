@@ -21,7 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Always answers 200; the feasible field says whether routing succeeded. Logs one line per order. The customer ZIP,
- * product codes and request bodies are deliberately never logged, because they can identify a patient's care.
+ * product codes, error messages and request bodies are deliberately never logged, because they can identify a
+ * patient's care.
  */
 @RestController
 @RequestMapping("/api")
@@ -76,9 +77,8 @@ public class RouteController {
 
     private static void logRejected(RouteRequest request, String reason, List<String> errors,
             long durationMillis) {
-        LOG.info("Rejected order_id={} feasible=false reason={} errors={} duration_ms={}",
-                loggable(request.orderId()), reason, errors.stream().map(RouteController::loggable).toList(),
-                durationMillis);
+        LOG.info("Rejected order_id={} feasible=false reason={} error_count={} duration_ms={}",
+                loggable(request.orderId()), reason, errors.size(), durationMillis);
     }
 
     /** Caller-supplied text must not be able to end a log line and start a fake one. */
@@ -105,7 +105,9 @@ public class RouteController {
      */
     @ExceptionHandler(Exception.class)
     public RouteResponse unexpectedFailure(Exception e) {
-        LOG.error("Unexpected error type={} at={}", e.getClass().getName(), e.getStackTrace()[0]);
+        // The JVM can omit the stack trace of a frequently thrown exception, so it may be empty.
+        StackTraceElement[] trace = e.getStackTrace();
+        LOG.error("Unexpected error type={} at={}", e.getClass().getName(), trace.length > 0 ? trace[0] : "unknown");
         return RouteResponse.failure(List.of("Order could not be routed due to an unexpected error."));
     }
 }

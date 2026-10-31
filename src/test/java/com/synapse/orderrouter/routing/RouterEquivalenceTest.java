@@ -8,6 +8,7 @@ import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -73,7 +74,7 @@ class RouterEquivalenceTest {
 
             Optional<Plan> expected = ReferenceRouter.bestPlan(catalog, order, ranker);
             RoutingResult actual = new RouterService(catalog, ranker, new SimpleMeterRegistry(),
-                    SearchTimeout.disabled()).route(order);
+                    new SearchTimeout(false, Duration.ZERO)).route(order);
 
             if (expected.isPresent()) {
                 assertThat(actual).as("case %d", i).isInstanceOf(Routed.class);

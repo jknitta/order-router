@@ -40,7 +40,7 @@ class SearchPerformanceTest {
     void s1SmallRealisticOrdersStayTrivial() {
         SyntheticCatalog synthetic = SyntheticCatalog.build(100, 24, 1, 0.5, 1L);
 
-        Run run = run(synthetic, synthetic.orderOfCategories(6), SearchTimeout.disabled());
+        Run run = run(synthetic, synthetic.orderOfCategories(6), new SearchTimeout(false, Duration.ZERO));
 
         report("S1 100 suppliers, 6 items", run);
         assertThat(run.result()).isInstanceOf(Routed.class);
@@ -51,7 +51,7 @@ class SearchPerformanceTest {
     void s2ManyProductsInFewCategories() {
         SyntheticCatalog synthetic = SyntheticCatalog.build(200, 8, 5, 0.5, 2L);
 
-        Run run = run(synthetic, synthetic.orderOfProducts(8, 5), SearchTimeout.disabled());
+        Run run = run(synthetic, synthetic.orderOfProducts(8, 5), new SearchTimeout(false, Duration.ZERO));
 
         report("S2 200 suppliers, 40 items/8 cats", run);
         assertThat(run.result()).isInstanceOf(Routed.class);
@@ -87,7 +87,7 @@ class SearchPerformanceTest {
     void s4HugeSupplierPoolWithASmallOrder() {
         SyntheticCatalog synthetic = SyntheticCatalog.build(20_000, 24, 1, 0.5, 4L);
 
-        Run run = run(synthetic, synthetic.orderOfCategories(4), SearchTimeout.disabled());
+        Run run = run(synthetic, synthetic.orderOfCategories(4), new SearchTimeout(false, Duration.ZERO));
 
         report("S4 20,000 suppliers, 4 items", run);
         assertThat(run.result()).isInstanceOf(Routed.class);

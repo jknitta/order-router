@@ -71,10 +71,11 @@ public final class CatalogLoader {
         return category.trim().toLowerCase(Locale.ROOT);
     }
 
-    /** "no ratings yet", or anything else that is not a number, scores as the midpoint. */
+    /** "no ratings yet", or anything else that is not a finite number, scores as the midpoint. */
     private static double score(String raw) {
         try {
-            return Double.parseDouble(raw);
+            double score = Double.parseDouble(raw);
+            return Double.isFinite(score) ? score : Supplier.UNRATED_SCORE;
         } catch (NumberFormatException e) {
             return Supplier.UNRATED_SCORE;
         }

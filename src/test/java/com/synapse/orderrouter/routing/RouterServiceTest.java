@@ -10,6 +10,7 @@ import com.synapse.orderrouter.routing.Plan.Assignment;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ class RouterServiceTest {
 
     private static RoutingResult route(Order order, Supplier... suppliers) {
         return new RouterService(new Catalog(List.of(suppliers), PRODUCTS), new DefaultSupplierSetRanker(),
-                new SimpleMeterRegistry(), SearchTimeout.disabled()).route(order);
+                new SimpleMeterRegistry(), new SearchTimeout(false, Duration.ZERO)).route(order);
     }
 
     private static Order order(boolean mailOrder, String... productCodes) {
@@ -169,7 +170,7 @@ class RouterServiceTest {
         Supplier everything = new Supplier("SUP-001", "Name SUP-001", ServiceArea.parse(ZIP), categories, 7, false);
 
         RoutingResult result = new RouterService(new Catalog(List.of(everything), products),
-                new DefaultSupplierSetRanker(), new SimpleMeterRegistry(), SearchTimeout.disabled())
+                new DefaultSupplierSetRanker(), new SimpleMeterRegistry(), new SearchTimeout(false, Duration.ZERO))
                 .route(new Order(ZIP, false, lines));
 
         assertThat(supplierIds(result)).containsExactly("SUP-001");
@@ -307,7 +308,7 @@ class RouterServiceTest {
                 supplier("SUP-001", ZIP, "cane,cpap,oxygen,wheelchair", 7, false),
                 supplier("SUP-002", ZIP, "cane,oxygen,walker", 7, false),
                 supplier("SUP-003", ZIP, "cpap,wheelchair,commode", 7, false)), PRODUCTS),
-                new DefaultSupplierSetRanker(), registry, SearchTimeout.disabled());
+                new DefaultSupplierSetRanker(), registry, new SearchTimeout(false, Duration.ZERO));
 
         service.route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
 
@@ -325,7 +326,7 @@ class RouterServiceTest {
         SimpleMeterRegistry registry = new SimpleMeterRegistry();
         RouterService service = new RouterService(
                 new Catalog(List.of(supplier("SUP-001", ZIP, "cane", 7, false)), PRODUCTS),
-                new DefaultSupplierSetRanker(), registry, SearchTimeout.disabled());
+                new DefaultSupplierSetRanker(), registry, new SearchTimeout(false, Duration.ZERO));
 
         service.route(order(false, "P-OXY"));
 
