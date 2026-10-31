@@ -63,7 +63,7 @@ Ask the user to decide each one. Do not silently pick.
 ## Architecture (as built)
 - Packages depend in one direction only: `api` -> `routing` -> `catalog`.
   - `api`: `RouteController`, `RouteRequest` and `RouteResponse` (they own conversion to and from the router's types), `RouteRequestValidator`.
-  - `routing`: `Order`, `RoutingResult` (`Routed` or `Unroutable`), `RouterService`, `Plan`, `SupplierSetRanker`. Knows nothing about JSON or HTTP.
+  - `routing`: `Order`, `RoutingResult` (`Routed`, `Unroutable` or `TimedOut`), `RouterService`, `Plan`, `SupplierSetRanker`. Knows nothing about JSON or HTTP.
   - `catalog`: CSV loading, `Supplier`, `ServiceArea` (ZIP parsing).
 - Ranking sits behind `SupplierSetRanker` so it can be swapped for a rules engine. Do not inline it into the search.
 - Package structure is a decision the author made. Do not flatten it or add cross-package dependencies without asking.

@@ -42,16 +42,16 @@ SLF4J API with Logback (configured in `logback-spring.xml`). Each order logs one
 
 ```
 Routed order_id=ORD-001 feasible=true suppliers=[SUP-0636] items=2 mail_order=false duration_ms=3
-Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must include at least one line item.] duration_ms=0
+Rejected order_id=ORD-X feasible=false reason=validation error_count=1 duration_ms=0
 ```
 
-`reason` is `validation` or `unroutable`. Unreadable JSON logs a warning. The customer ZIP, product codes and request bodies are never logged, because together they can identify a patient's care.
+`reason` is `validation` or `unroutable`. A search that runs out of time logs a warning with `reason=timeout`, and unreadable JSON logs a warning. The customer ZIP, product codes, error messages and request bodies are never logged, because together they can identify a patient's care.
 
 ## Metrics
 
 `GET /actuator/metrics` lists them. The useful ones:
 
-- `order.route` (timer, tag `outcome` = `routed`, `validation` or `unroutable`): count and latency of every order.
+- `order.route` (timer, tag `outcome` = `routed`, `validation`, `unroutable` or `timeout`): count and latency of every order.
 - `router.search.candidates`, `router.search.combinations`, `router.search.suppliers`: how much work the supplier search did per order. Watch `combinations`, since it is what grows with large orders.
 
 Example: `curl localhost:8080/actuator/metrics/router.search.combinations`
@@ -84,10 +84,10 @@ This is a best-effort alignment with HIPAA's technical safeguards, not a complia
 
 **Logging (PHI-controlled).**
 - Each order logs its `order_id`, outcome, supplier IDs, item count and duration. `order_id` is logged on purpose, as the key for tracing a decision. An order ID can be linked to a patient, so the logs must be treated as PHI: restrict access, set a retention period, and send them only to a log store covered by a BAA.
-- Never logged: the ZIP, product codes of routed items, request bodies and exception messages. Validation and routing error messages can include a product code. Unexpected errors log only the exception type and where it was thrown.
+- Never logged: the ZIP, product codes, request bodies, error messages (rejected orders log only `error_count`) and exception messages. Unexpected errors log only the exception type and where it was thrown.
 - Control characters in caller-supplied text are replaced before logging, so a caller cannot forge log lines.
 
-**Input handling.** Every response to `/api/route`, including unexpected failures, has the documented shape, and the cause is never exposed to the caller. Fractional quantities (`1.9`, reported as "must be a whole number"), quantities beyond the integer range, null items, bad JSON and the wrong content type are rejected, not coerced. A whole number written with a decimal point (`2.0`) is accepted.
+**Input handling.** Every response to `/api/route`, including unexpected failures, has the documented shape, and the cause is never exposed to the caller. Fractional quantities (`1.9`, reported as "must be a whole number"), quantities beyond the integer range (including the total of duplicate lines for one product), null items, bad JSON and the wrong content type are rejected, not coerced. A whole number written with a decimal point (`2.0`) is accepted.
 
 **Container.** Runs as a non-root user (uid 10001) and works with a read-only filesystem:
 
@@ -111,7 +111,7 @@ Only `/actuator/health` and `/actuator/metrics` are exposed. Metrics hold counts
 Dependencies run one way: `api` -> `routing` -> `catalog`.
 
 - `api`: the HTTP edge. `RouteController`, the JSON types `RouteRequest` and `RouteResponse` (which convert to and from the router's types), and `RouteRequestValidator`.
-- `routing`: the business rules. `RouterService` turns an `Order` into a `RoutingResult` (a `Plan` or a list of errors) and knows nothing about JSON. `SupplierSetRanker` is the swappable ranking.
+- `routing`: the business rules. `RouterService` turns an `Order` into a `RoutingResult` (a `Plan`, a list of errors, or a timeout) and knows nothing about JSON. `SupplierSetRanker` is the swappable ranking.
 - `catalog`: the CSV data. `CatalogLoader`, `Supplier`, and `ServiceArea` (ZIP parsing).
 
 ## How routing works
@@ -122,11 +122,11 @@ Dependencies run one way: `api` -> `routing` -> `catalog`.
 4. Among plans of that size, the best is chosen by: higher average supplier score, then more items fulfilled locally, then the lowest supplier IDs.
 5. If a chosen supplier is not the only one that could take an item, the item goes to the higher-rated one, then a local one, then the lower ID.
 
-The ranking in step 4 sits behind the `SupplierSetRanker` interface, so it can be replaced (for example by a rules engine) without touching the search.
+The ranking in step 4 sits behind the `SupplierSetRanker` interface. The search also applies the same score, local, id order when it picks between suppliers that cover the same items (steps 3 and 5, `BEST_FIRST` in `RouterService`). A replacement ranker that changes those priorities has to change that order too.
 
 ## Decisions
 
-- **"No ratings yet":** scored 5.5, the midpoint of the 1-10 scale, so new suppliers are neither favored nor buried. A score that cannot be parsed is treated the same way.
+- **"No ratings yet":** scored 5.5, the midpoint of the 1-10 scale, so new suppliers are neither favored nor buried. A score that is not a finite number (unparseable, `NaN` or `Infinity`) is treated the same way.
 - **Partial feasibility:** all or nothing. If any item has no eligible supplier, the whole order is `feasible: false` and the errors name each unroutable item. The spec has no partial result.
 - **Unknown product codes, quantity of zero or less, missing quantity:** the whole order fails with `feasible: false` and an error that names the product. The spec says the endpoint always returns 200, so these are not HTTP errors. Unreadable JSON is handled the same way.
 - **Duplicate lines for one product:** quantities are summed into one item.
