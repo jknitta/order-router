@@ -165,3 +165,7 @@ I have about 45 minutes now and we should finish as much as we can to make this 
 ### Prompt 20
 
 You underestimate how much you can do. But yes follow the plan with an additional requirement to be able to enable or disable timeout feature by configuration
+
+### Prompt 21
+
+Add external performance test suite to the future work. Something like Gatling would capture not only work, but any server issues. We really need that to ensure that our service adheres to any SLAs.
