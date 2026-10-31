@@ -47,6 +47,36 @@ Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must incl
 
 `reason` is `validation` or `unroutable`. Unreadable JSON logs a warning. The customer ZIP, product codes and request bodies are never logged, because together they can identify a patient's care.
 
+## Security and PHI handling
+
+This is a best-effort alignment with HIPAA's technical safeguards, not a compliance claim. A formal risk analysis is still required before this handles real patient data.
+
+**What the service handles.** An order's `customer_zip`, product codes and `order_id` together can reveal what care a patient receives, so treat all three as PHI. The service is stateless: no database, no writes, nothing persisted. It reads two CSV files at startup that hold supplier and product data, not patient data.
+
+**Logging (PHI-controlled).**
+- Each order logs its `order_id`, outcome, supplier IDs, item count and duration. `order_id` is logged on purpose, as the key for tracing a decision. An order ID can be linked to a patient, so the logs must be treated as PHI: restrict access, set a retention period, and send them only to a log store covered by a BAA.
+- Never logged: the ZIP, product codes of routed items, request bodies and exception messages. Validation and routing error messages can include a product code. Unexpected errors log only the exception type and where it was thrown.
+- Control characters in caller-supplied text are replaced before logging, so a caller cannot forge log lines.
+
+**Input handling.** Every response to `/api/route`, including unexpected failures, has the documented shape, and the cause is never exposed to the caller. Fractional quantities (`1.9`), null items, bad JSON and the wrong content type are rejected, not coerced.
+
+**Container.** Runs as a non-root user (uid 10001) and works with a read-only filesystem:
+
+```
+docker run --rm --read-only --tmpfs /tmp -p 8080:8080 order-router
+```
+
+Only `/actuator/health` is exposed, for orchestrator probes. Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven and base-image dependencies. To scan the built image: `trivy image order-router`.
+
+**The platform must provide** (outside this service):
+- TLS for traffic in transit.
+- Authentication and authorization on `/api/route`. There is none in the service, so logs carry no caller identity.
+- Network isolation, such as a private subnet, and rate limiting.
+- Log retention, access control and audit.
+- A BAA with the hosting and logging vendors.
+
+**Known gaps.** There is no cap on order size, so a pathological order could make the supplier search slow (checklist #5, which is why rate limiting matters). The base image is pinned by tag, not digest. The image scan is documented but has not been run.
+
 ## Code layout
 
 Dependencies run one way: `api` -> `routing` -> `catalog`.
@@ -97,4 +127,5 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 | 9 | [ ] | Supplier fairness | High (business) | ~1 hr | The lowest-ID tie-break always favors the same suppliers. Track which supplier won a tie most recently and rotate. Needs state, so persistence has to be decided. |
 | 10 | [ ] | Similar ratings | Low | ~15 min | Exact-match rule today. Revisit if it proves too strict. |
 | 11 | [ ] | Partial fulfillment | Med | ~1 hr | Return the routable items alongside the unroutable ones. The spec is all-or-nothing, so this goes beyond the MVP. |
+| 13 | [x] | Hardening pass | High | ~45 min | Catch-all error handling, null and fractional input rejected, health-only Actuator, non-root container, Dependabot and the Security and PHI section above. |
 | 12 | [ ] | GitHub Pages MkDocs site | Low-Med | ~1.25 hr | `mkdocs.yml`, content drawn from the README and #8, and a GitHub Actions publish workflow. Mostly presentation, so it comes last. |
