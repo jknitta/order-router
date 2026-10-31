@@ -132,4 +132,33 @@ class RouteApiTest {
                         .value(org.hamcrest.Matchers.anyOf(
                                 org.hamcrest.Matchers.is("local"), org.hamcrest.Matchers.is("mail_order"))));
     }
+
+    @Test
+    void aNullEntryInItemsReturns200WithFeasibleFalse() throws Exception {
+        postOrder("""
+                {"order_id": "ORD-X", "customer_zip": "10015", "mail_order": false, "items": [null]}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feasible").value(false))
+                .andExpect(jsonPath("$.errors").isNotEmpty());
+    }
+
+    @Test
+    void aFractionalQuantityIsRejectedInsteadOfSilentlyTruncated() throws Exception {
+        postOrder("""
+                {"order_id": "ORD-X", "customer_zip": "10015", "mail_order": true,
+                 "items": [{"product_code": "WC-STD-001", "quantity": 1.9}]}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feasible").value(false))
+                .andExpect(jsonPath("$.routing").doesNotExist());
+    }
+
+    @Test
+    void aNonJsonContentTypeReturns200WithFeasibleFalse() throws Exception {
+        mockMvc.perform(post("/api/route").contentType(MediaType.TEXT_PLAIN).content("x"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feasible").value(false))
+                .andExpect(jsonPath("$.errors").isNotEmpty());
+    }
 }

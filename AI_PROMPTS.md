@@ -132,3 +132,15 @@ Yes prevent fake log lines, write the test
 rebuild container
 
 yes take on linting
+
+### Prompt 15
+
+With an hour left, I want your thoughts on any other high-value, low LOE efforts I may be missing on this project. My goal would to make it shippable in a HIPAA-aligned environment.
+
+### Prompt 16
+
+1. Yes keep logging order_id with documentation of PHI-controlled logging
+2. Leave search alone for now. Let's harden this thing even more before optimizing
+3. Yes it's going to GitHub
+
+This is a best-effort HIPAA-alignment. Naturally an actual risk analysis would need to be done before shipping.

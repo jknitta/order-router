@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.synapse.orderrouter.api.RouteRequest.LineItem;
 import com.synapse.orderrouter.catalog.Catalog;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -80,5 +81,13 @@ class RouteRequestValidatorTest {
 
         assertThat(errors).hasSize(1);
         assertThat(errors.get(0)).contains("WC-1");
+    }
+
+    @Test
+    void aNullEntryInItemsIsRejectedWithoutFailing() {
+        RouteRequest request = new RouteRequest("ORD-T", "10015", false,
+                Arrays.asList(new LineItem("WC-1", 1), null));
+
+        assertThat(validator.validate(request)).containsExactly("Order items must not contain null entries.");
     }
 }
