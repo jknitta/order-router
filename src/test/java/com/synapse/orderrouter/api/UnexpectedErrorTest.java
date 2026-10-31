@@ -47,4 +47,17 @@ class UnexpectedErrorTest {
         assertThat(output).contains("ERROR", "Unexpected error", "IllegalStateException");
         assertThat(output).doesNotContain("secret-detail");
     }
+
+    @Test
+    void anExceptionWithoutAStackTraceStillReturns200() throws Exception {
+        // The JVM can drop the stack trace from a frequently thrown exception such as a NullPointerException.
+        when(router.route(any())).thenThrow(new IllegalStateException("no trace", null, false, false));
+
+        mockMvc.perform(post("/api/route").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"order_id": "ORD-ERR", "customer_zip": "10015", "mail_order": false,
+                         "items": [{"product_code": "WC-STD-001", "quantity": 1}]}
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feasible").value(false));
+    }
 }

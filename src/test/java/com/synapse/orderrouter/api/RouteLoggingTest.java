@@ -51,17 +51,17 @@ class RouteLoggingTest {
     }
 
     @Test
-    void aValidationFailureLogsTheReasonAndTheErrors(CapturedOutput output) throws Exception {
+    void aValidationFailureLogsTheReasonAndTheErrorCount(CapturedOutput output) throws Exception {
         postOrder("""
                 {"order_id": "ORD-LOG-3", "customer_zip": "10015", "mail_order": false, "items": []}
                 """);
 
         assertThat(output).contains("order_id=ORD-LOG-3", "feasible=false", "reason=validation",
-                "Order must include at least one line item.");
+                "error_count=1");
     }
 
     @Test
-    void anUnroutableOrderLogsTheReasonAndTheErrors(CapturedOutput output) throws Exception {
+    void anUnroutableOrderLogsTheReasonAndTheErrorCountButNoProductCode(CapturedOutput output) throws Exception {
         // ZIP 00050 is below every range in the data, so no supplier serves it.
         postOrder("""
                 {"order_id": "ORD-LOG-4", "customer_zip": "00050", "mail_order": false,
@@ -69,7 +69,8 @@ class RouteLoggingTest {
                 """);
 
         assertThat(output).contains("order_id=ORD-LOG-4", "feasible=false", "reason=unroutable",
-                "No eligible supplier");
+                "error_count=1");
+        assertThat(output).doesNotContain("WC-STD-001");
     }
 
     @Test
@@ -92,13 +93,13 @@ class RouteLoggingTest {
     }
 
     @Test
-    void controlCharactersInAnErrorMessageCannotForgeLogLines(CapturedOutput output) throws Exception {
+    void callerSuppliedProductCodesInErrorsAreNotLogged(CapturedOutput output) throws Exception {
         postOrder("""
                 {"order_id": "ORD-LOG-5", "customer_zip": "10015", "mail_order": false,
                  "items": [{"product_code": "BAD\\r\\nFORGED-CODE-LINE", "quantity": 1}]}
                 """);
 
-        assertThat(output).contains("order_id=ORD-LOG-5", "Unknown product code: BAD__FORGED-CODE-LINE");
-        assertThat(output.getAll().lines()).noneMatch(line -> line.startsWith("FORGED-CODE-LINE"));
+        assertThat(output).contains("order_id=ORD-LOG-5", "error_count=1");
+        assertThat(output).doesNotContain("FORGED-CODE-LINE");
     }
 }

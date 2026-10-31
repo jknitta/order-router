@@ -30,6 +30,14 @@ class RouteRequestValidatorTest {
     }
 
     @Test
+    void duplicateLinesWhoseQuantitiesAddUpPastTheIntegerRangeAreRejected() {
+        RouteRequest request = request("10015", item("WC-1", 2_000_000_000), item("WC-1", 2_000_000_000));
+
+        assertThat(validator.validate(request))
+                .containsExactly("Quantity for WC-1 is too large (maximum is 2147483647).");
+    }
+
+    @Test
     void validRequestHasNoErrors() {
         assertThat(validator.validate(request("10015", item("WC-1", 1)))).isEmpty();
     }

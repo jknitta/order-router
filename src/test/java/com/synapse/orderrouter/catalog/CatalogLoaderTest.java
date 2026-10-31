@@ -54,6 +54,20 @@ class CatalogLoaderTest {
     }
 
     @Test
+    void scoresThatAreNotFiniteNumbersBecomeTheMidpoint() {
+        String suppliers = """
+                supplier_id,suplier_name,service_zips,product_categories,customer_satisfaction_score,can_mail_order?
+                SUP-N,Not A Number,10001,cane,NaN,y
+                SUP-I,Infinite,10001,cane,Infinity,y
+                """;
+
+        Catalog loaded = CatalogLoader.load(new StringReader(suppliers), new StringReader(PRODUCTS));
+
+        assertThat(loaded.suppliers()).extracting(Supplier::score)
+                .containsExactly(Supplier.UNRATED_SCORE, Supplier.UNRATED_SCORE);
+    }
+
+    @Test
     void mailOrderFlagIsReadCaseInsensitively() {
         assertThat(supplier("SUP-001").canMailOrder()).isTrue();
         assertThat(supplier("SUP-002").canMailOrder()).isFalse();

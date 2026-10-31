@@ -169,3 +169,11 @@ You underestimate how much you can do. But yes follow the plan with an additiona
 ### Prompt 21
 
 Add external performance test suite to the future work. Something like Gatling would capture not only work, but any server issues. We really need that to ensure that our service adheres to any SLAs.
+
+### Prompt 22
+
+I've cleared the session now. I want you to look at this repo that we've built and review it for inconsistencies and bugs.
+
+### Prompt 23
+
+As your last effort, fix them all
