@@ -13,7 +13,7 @@ Inputs (provided): suppliers.csv, products.csv, sample_orders.json, and the orig
 3. AI_PROMPTS.md: the author's significant prompts, in order, verbatim.
 
 ## Prompt logging (important)
-- Before acting on any substantive prompt from the user, append it VERBATIM to AI_PROMPTS.md as a numbered entry (1, 2, 3...). Skip trivial replies like "yes" or "continue".
+- Before acting on any substantive prompt from the user, append it VERBATIM to AI_PROMPTS.md as its own `### Prompt N` section (not a numbered list, which renders badly when prompts contain numbers). Skip trivial replies like "yes" or "continue".
 - Never edit, reword, summarize, merge, or reorder earlier entries.
 - Do not log your own responses, only the user's prompts.
 
@@ -59,3 +59,19 @@ Ask the user to decide each one. Do not silently pick.
 - Verify from a clean clone: build, run, tests pass.
 - Distill PLAN.md into the README decisions section. Delete PLAN.md or move a cleaned version to docs/. Do not ship the raw working file.
 - Remind the user to read the whole repo top to bottom and flag anything they could not explain.
+
+## Architecture (as built)
+- Packages depend in one direction only: `api` -> `routing` -> `catalog`.
+  - `api`: `RouteController`, `RouteRequest` and `RouteResponse` (they own conversion to and from the router's types), `RouteRequestValidator`.
+  - `routing`: `Order`, `RoutingResult` (`Routed` or `Unroutable`), `RouterService`, `Plan`, `SupplierSetRanker`. Knows nothing about JSON or HTTP.
+  - `catalog`: CSV loading, `Supplier`, `ServiceArea` (ZIP parsing).
+- Ranking sits behind `SupplierSetRanker` so it can be swapped for a rules engine. Do not inline it into the search.
+- Package structure is a decision the author made. Do not flatten it or add cross-package dependencies without asking.
+
+## Standards (enforced)
+- `mvn test` runs Checkstyle first (`checkstyle.xml`: 4-space indent, 120 columns, import order, no unused imports). Fix violations in the code. Do not loosen the rules.
+- Red-green: write failing tests, commit them, let the author review, then implement and commit green separately.
+- PHI in logs: never log the customer ZIP, product codes of routed items, request bodies or exception messages. Caller-supplied text that is logged goes through `loggable()` in `RouteController`. `order_id` is logged on purpose and the README documents that logs are PHI-controlled.
+- `POST /api/route` always returns HTTP 200 in the documented shape. Unexpected failures go through the catch-all handler, which never echoes the cause.
+- The container runs as non-root. Only `/actuator/health` (and `metrics`, when added) is exposed. Do not expose other endpoints.
+- Behavior changes update the README (decisions, security section, checklist) in the same change.

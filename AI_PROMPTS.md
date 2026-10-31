@@ -150,3 +150,9 @@ This is a best-effort HIPAA-alignment. Naturally an actual risk analysis would n
 Improve "Silent quantity truncation"
 
 I have about 45 minutes now and we should finish as much as we can to make this prod-ready.
+
+### Prompt 18
+
+3 is quick and saves time, then
+2 gives us data on how non-performant the rate or order-size issues are, then
+1 and let's discuss options for how to actually handle large orders performantly
