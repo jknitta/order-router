@@ -1,4 +1,4 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.catalog;
 
 import java.util.ArrayList;
 import java.util.List;

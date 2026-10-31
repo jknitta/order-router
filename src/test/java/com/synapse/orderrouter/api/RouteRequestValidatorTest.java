@@ -1,8 +1,10 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.synapse.orderrouter.RouteRequest.LineItem;
+import com.synapse.orderrouter.catalog.Catalog;
+import com.synapse.orderrouter.routing.RouteRequest.LineItem;
+import com.synapse.orderrouter.routing.RouteRequest;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

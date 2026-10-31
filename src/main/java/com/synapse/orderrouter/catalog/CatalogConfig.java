@@ -1,4 +1,4 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.catalog;
 
 import java.io.IOException;
 import java.io.InputStreamReader;

@@ -1,4 +1,4 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

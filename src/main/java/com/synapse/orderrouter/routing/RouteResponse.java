@@ -1,4 +1,4 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.routing;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;

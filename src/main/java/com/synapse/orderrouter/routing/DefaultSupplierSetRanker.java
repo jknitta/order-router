@@ -1,5 +1,6 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.routing;
 
+import com.synapse.orderrouter.catalog.Supplier;
 import java.util.List;
 import org.springframework.stereotype.Component;
 

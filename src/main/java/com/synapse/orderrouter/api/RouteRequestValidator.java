@@ -1,6 +1,9 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.api;
 
-import com.synapse.orderrouter.RouteRequest.LineItem;
+import com.synapse.orderrouter.catalog.Catalog;
+import com.synapse.orderrouter.catalog.ServiceArea;
+import com.synapse.orderrouter.routing.RouteRequest.LineItem;
+import com.synapse.orderrouter.routing.RouteRequest;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Component;

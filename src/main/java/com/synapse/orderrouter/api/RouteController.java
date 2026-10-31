@@ -1,5 +1,8 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.api;
 
+import com.synapse.orderrouter.routing.RouteRequest;
+import com.synapse.orderrouter.routing.RouteResponse;
+import com.synapse.orderrouter.routing.RouterService;
 import java.util.List;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;

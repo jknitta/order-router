@@ -1,10 +1,13 @@
-package com.synapse.orderrouter;
+package com.synapse.orderrouter.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.synapse.orderrouter.RouteRequest.LineItem;
-import com.synapse.orderrouter.RouteResponse.ShipmentItem;
-import com.synapse.orderrouter.RouteResponse.SupplierShipment;
+import com.synapse.orderrouter.catalog.Catalog;
+import com.synapse.orderrouter.catalog.ServiceArea;
+import com.synapse.orderrouter.catalog.Supplier;
+import com.synapse.orderrouter.routing.RouteRequest.LineItem;
+import com.synapse.orderrouter.routing.RouteResponse.ShipmentItem;
+import com.synapse.orderrouter.routing.RouteResponse.SupplierShipment;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
