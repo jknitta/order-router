@@ -21,8 +21,8 @@ Status: planning. No code written. Waiting on the open items below.
 ## Decisions made
 | # | Topic | Decision |
 |---|-------|----------|
-| 1 | Unknown product code | Whole order fails with HTTP 400 (see open item A) |
-| 2 | Quantity <= 0 | HTTP 400 (see open item A) |
+| 1 | Unknown product code | Whole order fails: HTTP 200, `feasible: false`, error names the code (spec: always 200) |
+| 2 | Quantity <= 0 | Same: HTTP 200, `feasible: false`, error message |
 | 3 | Duplicate lines in an order | Quantities are summed |
 | 4 | 4-digit ZIPs in supplier data | Left-pad with 0 |
 | 5 | Local supplier | Supplier serves the order ZIP. Applies whether or not `mail_order` is true |
@@ -30,14 +30,13 @@ Status: planning. No code written. Waiting on the open items below.
 | 7 | Rating "similar" | Exact tie on score only |
 | 8 | Final tie-break | Lowest `supplier_id` |
 | 9 | Fewest shipments | Minimum number of suppliers (exhaustive search, not greedy) |
+| 10 | Item with no eligible supplier | Whole order `feasible: false`, errors name the item |
+| 11 | Ranking among equally small supplier sets | 1) higher average score, 2) more items fulfilled locally, 3) lowest supplier IDs. Within a set, a shared item goes to the higher-rated supplier, then local, then lower ID |
+| 12 | Ranking mechanism | A single comparator over candidate supplier sets, behind a small interface so it can be swapped for a real rules engine later |
 
 ## Open items
-- A. HTTP status for validation errors: spec says POST /api/route always returns 200, decision says 400.
-- B. "No ratings yet" score value (author leans neutral).
-- C. Order with an item no eligible supplier can handle: `feasible: false` with errors (recommended).
-- D. Ordering among equally small supplier sets.
-- E. Order `customer_zip` handling when 4 digits.
-- F. "Rules engine": plain comparator vs. framework.
+- B. "No ratings yet" score value. Author leans neutral. Recommendation: 5.5 (scale midpoint) as one named constant. Rated mean is 7.1.
+- E. 4-digit `customer_zip` on an order: pad to 5 digits (recommended, same rule as supplier data) or reject.
 
 ## Implementation steps
 1. Scaffold: Maven project, Dockerfile, CSVs into resources, `.gitignore` for `target/`.

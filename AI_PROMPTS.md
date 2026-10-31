@@ -17,3 +17,10 @@
 13. i lean minimum, but define "greedy"
 14. yes 400 for non-positive, and duplicate lines become additive
 15. absolutely. our dev flow is going to be red-green-refactor so tests first that I review and then implmentation
+
+3. A. option 1, I forgot about that detail in spec
+5/F. Comparator okay, but we need to make it easy to replace with a real rules engine should the need arise later
+C. Yes if there are truly orders with no eligible supplier, then feasible is false
+D. fair proposal
+
+Not sure where the other letters went, that last list of questions was labeled confusingly
