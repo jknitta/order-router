@@ -5,6 +5,7 @@ import com.synapse.orderrouter.catalog.Supplier;
 import com.synapse.orderrouter.routing.Plan.Assignment;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
+import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,6 +33,9 @@ public class RouterService {
         }
     }
 
+    private record SearchResult(Plan plan, int combinationsExamined) {
+    }
+
     /** Which of two suppliers that can take the same item should get it: higher score, then local, then lower id. */
     private static final Comparator<Candidate> BEST_FIRST = Comparator
             .comparingDouble((Candidate c) -> c.supplier().score()).reversed()
@@ -40,10 +44,19 @@ public class RouterService {
 
     private final Catalog catalog;
     private final SupplierSetRanker ranker;
+    private final DistributionSummary candidateGroups;
+    private final DistributionSummary combinationsExamined;
+    private final DistributionSummary suppliersInPlan;
 
     public RouterService(Catalog catalog, SupplierSetRanker ranker, MeterRegistry meterRegistry) {
         this.catalog = catalog;
         this.ranker = ranker;
+        this.candidateGroups = DistributionSummary.builder("router.search.candidates")
+                .description("Distinct supplier coverage groups searched per order").register(meterRegistry);
+        this.combinationsExamined = DistributionSummary.builder("router.search.combinations")
+                .description("Supplier combinations examined per order").register(meterRegistry);
+        this.suppliersInPlan = DistributionSummary.builder("router.search.suppliers")
+                .description("Suppliers in the chosen plan per order").register(meterRegistry);
     }
 
     /** Routes an order that has already passed validation. */
@@ -55,7 +68,12 @@ public class RouterService {
         if (!errors.isEmpty()) {
             return new Unroutable(errors);
         }
-        return new Routed(fewestSuppliersPlan(items, bestPerCoverage(candidates)));
+        List<Candidate> distinctCandidates = bestPerCoverage(candidates);
+        SearchResult result = fewestSuppliersPlan(items, distinctCandidates);
+        candidateGroups.record(distinctCandidates.size());
+        combinationsExamined.record(result.combinationsExamined());
+        suppliersInPlan.record(result.plan().suppliers().size());
+        return new Routed(result.plan());
     }
 
     private List<Item> mergeDuplicateLines(List<Order.Line> lines) {
@@ -104,31 +122,37 @@ public class RouterService {
     }
 
     /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, with its best-ranked plan. */
-    private Plan fewestSuppliersPlan(List<Item> items, List<Candidate> candidates) {
+    private SearchResult fewestSuppliersPlan(List<Item> items, List<Candidate> candidates) {
+        int examined = 0;
         for (int size = 1; size <= items.size(); size++) {
             List<Plan> plans = new ArrayList<>();
-            collectCovers(items, candidates, 0, size, new ArrayDeque<>(), plans);
+            examined += collectCovers(items, candidates, 0, size, new ArrayDeque<>(), plans);
             if (!plans.isEmpty()) {
-                return plans.stream().min(ranker).orElseThrow();
+                return new SearchResult(plans.stream().min(ranker).orElseThrow(), examined);
             }
         }
         throw new IllegalStateException("Every item has an eligible supplier, so a cover must exist");
     }
 
-    /** Adds a plan to the list for every group of `remaining` more candidates that, with `chosen`, covers the order. */
-    private void collectCovers(List<Item> items, List<Candidate> candidates, int start, int remaining,
+    /**
+     * Adds a plan to the list for every group of `remaining` more candidates that, with `chosen`, covers the order.
+     * Returns how many complete combinations it looked at.
+     */
+    private int collectCovers(List<Item> items, List<Candidate> candidates, int start, int remaining,
                                Deque<Candidate> chosen, List<Plan> plans) {
         if (remaining == 0) {
             if (coversAll(items, chosen)) {
                 plans.add(assignItems(items, chosen));
             }
-            return;
+            return 1;
         }
+        int examined = 0;
         for (int i = start; i < candidates.size(); i++) {
             chosen.addLast(candidates.get(i));
-            collectCovers(items, candidates, i + 1, remaining - 1, chosen, plans);
+            examined += collectCovers(items, candidates, i + 1, remaining - 1, chosen, plans);
             chosen.removeLast();
         }
+        return examined;
     }
 
     private boolean coversAll(List<Item> items, Deque<Candidate> chosen) {

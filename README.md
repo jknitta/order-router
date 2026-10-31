@@ -47,6 +47,15 @@ Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must incl
 
 `reason` is `validation` or `unroutable`. Unreadable JSON logs a warning. The customer ZIP, product codes and request bodies are never logged, because together they can identify a patient's care.
 
+## Metrics
+
+`GET /actuator/metrics` lists them. The useful ones:
+
+- `order.route` (timer, tag `outcome` = `routed`, `validation` or `unroutable`): count and latency of every order.
+- `router.search.candidates`, `router.search.combinations`, `router.search.suppliers`: how much work the supplier search did per order. Watch `combinations`, since it is what grows with large orders.
+
+Example: `curl localhost:8080/actuator/metrics/router.search.combinations`
+
 ## Security and PHI handling
 
 This is a best-effort alignment with HIPAA's technical safeguards, not a compliance claim. A formal risk analysis is still required before this handles real patient data.
@@ -66,7 +75,7 @@ This is a best-effort alignment with HIPAA's technical safeguards, not a complia
 docker run --rm --read-only --tmpfs /tmp -p 8080:8080 order-router
 ```
 
-Only `/actuator/health` is exposed, for orchestrator probes. Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven and base-image dependencies. To scan the built image: `trivy image order-router`.
+Only `/actuator/health` and `/actuator/metrics` are exposed. Metrics hold counts and timings, never order data, but the platform should still keep `/actuator` internal. Dependabot (`.github/dependabot.yml`) opens weekly updates for Maven and base-image dependencies. To scan the built image: `trivy image order-router`.
 
 **The platform must provide** (outside this service):
 - TLS for traffic in transit.
@@ -122,7 +131,7 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 | 4 | [ ] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |
 | 5 | [ ] | Search-cost guard | High | ~30 min | Exhaustive set search grows quickly with distinct items. Cap distinct items per order or fall back to greedy past a limit. Depends on #4 for the numbers, and the cap is new behavior, so it needs a decision first. |
 | 6 | [ ] | Clean Data initiative | High | ~45 min | Fix the source files instead of compensating in code: leading zeros, category casing, the `suplier_name` header, duplicate product rows, and inconsistent supplier IDs (14 look like `SUP-T001`). Then simplify the loader. |
-| 7 | [ ] | Metrics instrumentation | Med | ~40 min | Spring Boot Actuator and Micrometer: a timer on `/api/route` and counters for feasible and infeasible orders. |
+| 7 | [x] | Metrics instrumentation | Med | ~40 min | Spring Boot Actuator and Micrometer: a timer on `/api/route` and counters for feasible and infeasible orders. |
 | 8 | [ ] | Documentation | Med | ~45 min | OpenAPI description of `/api/route`, a short architecture note (packages and the search), and Javadoc on the public types. |
 | 9 | [ ] | Supplier fairness | High (business) | ~1 hr | The lowest-ID tie-break always favors the same suppliers. Track which supplier won a tie most recently and rotate. Needs state, so persistence has to be decided. |
 | 10 | [ ] | Similar ratings | Low | ~15 min | Exact-match rule today. Revisit if it proves too strict. |

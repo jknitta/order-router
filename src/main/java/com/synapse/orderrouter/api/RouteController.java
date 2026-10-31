@@ -5,7 +5,9 @@ import com.synapse.orderrouter.routing.Plan;
 import com.synapse.orderrouter.routing.RouterService;
 import com.synapse.orderrouter.routing.RoutingResult.Routed;
 import com.synapse.orderrouter.routing.RoutingResult.Unroutable;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -28,10 +30,12 @@ public class RouteController {
 
     private final RouteRequestValidator validator;
     private final RouterService router;
+    private final MeterRegistry meterRegistry;
 
-    public RouteController(RouteRequestValidator validator, RouterService router) {
+    public RouteController(RouteRequestValidator validator, RouterService router, MeterRegistry meterRegistry) {
         this.validator = validator;
         this.router = router;
+        this.meterRegistry = meterRegistry;
     }
 
     @PostMapping("/route")
@@ -39,32 +43,33 @@ public class RouteController {
         long startNanos = System.nanoTime();
         List<String> errors = validator.validate(request);
         if (!errors.isEmpty()) {
-            logRejected(request, "validation", errors, startNanos);
+            logRejected(request, "validation", errors, recordOutcome("validation", startNanos));
             return RouteResponse.failure(errors);
         }
         return switch (router.route(request.toOrder())) {
             case Routed routed -> {
-                logRouted(request, routed.plan(), startNanos);
+                logRouted(request, routed.plan(), recordOutcome("routed", startNanos));
                 yield RouteResponse.success(routed.plan());
             }
             case Unroutable unroutable -> {
-                logRejected(request, "unroutable", unroutable.errors(), startNanos);
+                logRejected(request, "unroutable", unroutable.errors(), recordOutcome("unroutable", startNanos));
                 yield RouteResponse.failure(unroutable.errors());
             }
         };
     }
 
-    private static void logRouted(RouteRequest request, Plan plan, long startNanos) {
+    private static void logRouted(RouteRequest request, Plan plan, long durationMillis) {
         List<String> supplierIds = plan.suppliers().stream().map(Supplier::id).toList();
         LOG.info("Routed order_id={} feasible=true suppliers={} items={} mail_order={} duration_ms={}",
                 loggable(request.orderId()), supplierIds, plan.assignments().size(), request.mailOrder(),
-                millisSince(startNanos));
+                durationMillis);
     }
 
-    private static void logRejected(RouteRequest request, String reason, List<String> errors, long startNanos) {
+    private static void logRejected(RouteRequest request, String reason, List<String> errors,
+            long durationMillis) {
         LOG.info("Rejected order_id={} feasible=false reason={} errors={} duration_ms={}",
                 loggable(request.orderId()), reason, errors.stream().map(RouteController::loggable).toList(),
-                millisSince(startNanos));
+                durationMillis);
     }
 
     /** Caller-supplied text must not be able to end a log line and start a fake one. */
@@ -72,8 +77,11 @@ public class RouteController {
         return text == null ? null : text.replaceAll("\\p{Cntrl}", "_");
     }
 
-    private static long millisSince(long startNanos) {
-        return (System.nanoTime() - startNanos) / 1_000_000;
+    /** Times the order under a fixed outcome name (never order data) and returns the duration in milliseconds. */
+    private long recordOutcome(String outcome, long startNanos) {
+        long nanos = System.nanoTime() - startNanos;
+        meterRegistry.timer("order.route", "outcome", outcome).record(nanos, TimeUnit.NANOSECONDS);
+        return TimeUnit.NANOSECONDS.toMillis(nanos);
     }
 
     @ExceptionHandler({HttpMessageNotReadableException.class, HttpMediaTypeNotSupportedException.class})

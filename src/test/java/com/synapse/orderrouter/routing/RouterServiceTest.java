@@ -325,6 +325,6 @@ class RouterServiceTest {
 
         service.route(order(false, "P-OXY"));
 
-        assertThat(registry.find("router.search.combinations").summary()).isNull();
+        assertThat(registry.get("router.search.combinations").summary().count()).isZero();
     }
 }
