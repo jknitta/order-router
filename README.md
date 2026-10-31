@@ -61,10 +61,21 @@ The ranking in step 4 sits behind the `SupplierSetRanker` interface, so it can b
 - **Duplicate product codes in `products.csv`:** the first row wins. The 5 duplicated codes repeat the same category.
 - **Header typo:** `suppliers.csv` spells the name column `suplier_name`, and the loader reads it that way.
 
-## Known limits and future work
+## Improvement checklist
 
-- **Supplier fairness:** the lowest-ID tie-break always favors the same suppliers. A later version should track which supplier won a tie most recently and rotate, so suppliers stay happy in the network as well as customers.
-- **Clean Data initiative:** fix the source files instead of compensating in code. That means leading zeros, category casing, the header typo, duplicate product rows and inconsistent supplier ID formats (14 look like `SUP-T001`).
-- **Partial fulfillment:** returning the routable items alongside the unroutable ones.
-- **Similar ratings:** revisit the exact-match rule if it proves too strict.
-- **Search cost:** the supplier-set search is exhaustive over distinct item-coverage groups. That is fast for realistic order sizes, but it grows quickly for orders with many distinct items.
+Working list of what to tackle next, ordered by best-guess impact against effort (highest impact, lowest effort first). Impact and LOE are rough estimates and will change as we learn more.
+
+| # | Done | Item | Impact | LOE | Why / scope |
+|---|------|------|--------|-----|-------------|
+| 1 | [ ] | Request logging | Med-High | ~20 min | One structured line per routed order (order id, feasible, supplier ids, duration) plus a warning for each rejected order. The service has no logging today, so a bad answer cannot be traced. |
+| 2 | [ ] | Code linting | Med | ~30 min | Spotless (google-java-format) and unused-import checks wired into `mvn verify`, so style cannot drift. |
+| 3 | [ ] | CLAUDE.md and skills to enforce standards | High | ~45 min | Update CLAUDE.md for the package layout and the dependency direction (`api` -> `routing` -> `catalog`). Add a hook that blocks commits unless `mvn verify` passes, and a skill for the red-green-refactor and prompt-logging steps. |
+| 4 | [ ] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |
+| 5 | [ ] | Search-cost guard | High | ~30 min | Exhaustive set search grows quickly with distinct items. Cap distinct items per order or fall back to greedy past a limit. Depends on #4 for the numbers, and the cap is new behavior, so it needs a decision first. |
+| 6 | [ ] | Clean Data initiative | High | ~45 min | Fix the source files instead of compensating in code: leading zeros, category casing, the `suplier_name` header, duplicate product rows, and inconsistent supplier IDs (14 look like `SUP-T001`). Then simplify the loader. |
+| 7 | [ ] | Metrics instrumentation | Med | ~40 min | Spring Boot Actuator and Micrometer: a timer on `/api/route` and counters for feasible and infeasible orders. |
+| 8 | [ ] | Documentation | Med | ~45 min | OpenAPI description of `/api/route`, a short architecture note (packages and the search), and Javadoc on the public types. |
+| 9 | [ ] | Supplier fairness | High (business) | ~1 hr | The lowest-ID tie-break always favors the same suppliers. Track which supplier won a tie most recently and rotate. Needs state, so persistence has to be decided. |
+| 10 | [ ] | Similar ratings | Low | ~15 min | Exact-match rule today. Revisit if it proves too strict. |
+| 11 | [ ] | Partial fulfillment | Med | ~1 hr | Return the routable items alongside the unroutable ones. The spec is all-or-nothing, so this goes beyond the MVP. |
+| 12 | [ ] | GitHub Pages MkDocs site | Low-Med | ~1.25 hr | `mkdocs.yml`, content drawn from the README and #8, and a GitHub Actions publish workflow. Mostly presentation, so it comes last. |
