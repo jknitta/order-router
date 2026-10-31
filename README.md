@@ -36,11 +36,19 @@ The tests cover ZIP parsing, CSV loading, validation, the routing rules and the 
 
 Extra request fields (such as `priority` and `notes`) are ignored.
 
+## Code layout
+
+Dependencies run one way: `api` -> `routing` -> `catalog`.
+
+- `api`: the HTTP edge. `RouteController`, the JSON types `RouteRequest` and `RouteResponse` (which convert to and from the router's types), and `RouteRequestValidator`.
+- `routing`: the business rules. `RouterService` turns an `Order` into a `RoutingResult` (a `Plan` or a list of errors) and knows nothing about JSON. `SupplierSetRanker` is the swappable ranking.
+- `catalog`: the CSV data. `CatalogLoader`, `Supplier`, and `ServiceArea` (ZIP parsing).
+
 ## How routing works
 
 1. A supplier is eligible if it serves the customer's ZIP. When `mail_order` is true, a supplier with `can_mail_order? = y` is also eligible regardless of ZIP.
 2. A supplier can only take items whose category it handles.
-3. The router tries one supplier, then two, and so on, and stops at the first size that covers every item. That is the fewest shipments.
+3. The router tries one supplier, then two, and so on, and stops at the first size that covers every item. That is the fewest shipments. Suppliers that can take exactly the same items are collapsed to the best-ranked one first, so the search depends on the number of distinct item groups, not on how many suppliers there are.
 4. Among plans of that size, the best is chosen by: higher average supplier score, then more items fulfilled locally, then the lowest supplier IDs.
 5. If a chosen supplier is not the only one that could take an item, the item goes to the higher-rated one, then a local one, then the lower ID.
 
