@@ -1,0 +1,19 @@
+# AI Prompts
+
+1. Review CLAUDE.md file and compare it to the files in this project. Tell me where there are discrepancies and ask questions before we begin.
+
+2. 1. Maven
+2. 21
+3. Yes both
+4. This feels like a pure business decision and my tendency to want to give newcomers a shot leads me to want to treat them as neutral. Happy to discuss the pros and cons of this approach
+5. We'll have to test this, but the wording of the prompt makes it sound like there may be some combination of orders that are not able to be fulfilled by a single supplier so we may have to use multiple suppliers to fulfill some orders. That makes me think that we'll need to apply a rules engine to provide the best possilbe experience see "Routing Logic Properties" from the instructions
+6. Meaning caller provides an unknown product code? Yes this is a hTTP 400, fail the whole order
+7. Not sure what you mean "skip the bad token", if the only malformation of ZIPs is leading zeroes, then those are valid and they shoudln't be skipped. BTW, let's make a note in a future initiatives section of the PLAN.md that we want to have a "Clean Data" Initiative.
+8. yes
+9. are they legit zip codes if we left pad with 0s?
+10. what's your understanding of a "local" supplier? my take is that mail_order=false BUT they service the area code of the order = LOCAL, so in other words I agree with your recommendation.
+11. Ratings should be a deterministic point system. It should only be an exact match for simplicity now. We can refactor later if we find there's an issue
+12. First iteration should be lowest supplier id, but I think a later improvement should track which suppliers were selected most recently. Just make that last bit a note that we're making a tradeoff for simplicity now with thought given to supplier fairness. Suppliers need to be happy with being part of our network just as much as customers do.
+13. i lean minimum, but define "greedy"
+14. yes 400 for non-positive, and duplicate lines become additive
+15. absolutely. our dev flow is going to be red-green-refactor so tests first that I review and then implmentation
