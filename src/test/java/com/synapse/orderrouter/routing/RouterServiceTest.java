@@ -312,10 +312,11 @@ class RouterServiceTest {
         service.route(order(false, "P-CANE", "P-CPAP", "P-OXY", "P-WC", "P-WALK", "P-COM"));
 
         // 3 distinct candidates. One supplier can never cover 6 categories (the best covers 4), so size 1 is skipped.
-        // For pairs the search tries SUP-001 then SUP-002 on the first category (cane), and SUP-002 then SUP-001/003 on
-        // the next uncovered one: 5 steps, and SUP-002 + SUP-003 covers the order.
+        // For pairs it tries SUP-001 then SUP-002 for the first category (cane): 2 steps. After SUP-001 only SUP-002
+        // covers walker (1 step, a dead end). In SUP-002's branch SUP-001 is skipped, since every group containing it
+        // was already explored, so only SUP-003 is tried for cpap (1 step), and SUP-002 + SUP-003 covers the order.
         assertThat(registry.get("router.search.candidates").summary().totalAmount()).isEqualTo(3);
-        assertThat(registry.get("router.search.combinations").summary().totalAmount()).isEqualTo(5);
+        assertThat(registry.get("router.search.combinations").summary().totalAmount()).isEqualTo(4);
         assertThat(registry.get("router.search.suppliers").summary().totalAmount()).isEqualTo(2);
     }
 

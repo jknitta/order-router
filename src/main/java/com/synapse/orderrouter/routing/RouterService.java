@@ -10,9 +10,11 @@ import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +44,7 @@ public class RouterService {
         }
     }
 
-    private record SearchResult(Plan plan, int combinationsExamined) {
+    private record SearchResult(Plan plan, int stepsTaken) {
     }
 
     /** Which of two suppliers that can take the same item should get it: higher score, then local, then lower id. */
@@ -66,7 +68,7 @@ public class RouterService {
         this.candidateGroups = DistributionSummary.builder("router.search.candidates")
                 .description("Distinct supplier coverage groups searched per order").register(meterRegistry);
         this.combinationsExamined = DistributionSummary.builder("router.search.combinations")
-                .description("Supplier combinations examined per order").register(meterRegistry);
+                .description("Supplier choices tried by the search per order").register(meterRegistry);
         this.suppliersInPlan = DistributionSummary.builder("router.search.suppliers")
                 .description("Suppliers in the chosen plan per order").register(meterRegistry);
     }
@@ -88,7 +90,7 @@ public class RouterService {
             return new TimedOut();
         }
         candidateGroups.record(distinctCandidates.size());
-        combinationsExamined.record(result.combinationsExamined());
+        combinationsExamined.record(result.stepsTaken());
         suppliersInPlan.record(result.plan().suppliers().size());
         return new Routed(result.plan());
     }
@@ -136,54 +138,84 @@ public class RouterService {
         Map<Set<String>, Candidate> best = new HashMap<>();
         candidates.forEach(c -> best.merge(c.coverableCategories(), c,
                 (a, b) -> BEST_FIRST.compare(a, b) <= 0 ? a : b));
-        return List.copyOf(best.values());
+        return best.values().stream().sorted(Comparator.comparing(c -> c.supplier().id())).toList();
     }
 
-    /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, with its best-ranked plan. */
     private SearchResult fewestSuppliersPlan(List<Item> items, List<Candidate> candidates, long startNanos) {
-        List<String> categories = items.stream().map(Item::category).distinct().toList();
-        int examined = 0;
-        for (int size = 1; size <= categories.size(); size++) {
-            List<Plan> plans = new ArrayList<>();
-            examined += collectCovers(items, categories, candidates, 0, size, new ArrayDeque<>(), plans, startNanos);
-            if (!plans.isEmpty()) {
-                return new SearchResult(plans.stream().min(ranker).orElseThrow(), examined);
-            }
-        }
-        throw new IllegalStateException("Every item has an eligible supplier, so a cover must exist");
+        return new Search(items, candidates, startNanos).run();
     }
 
     /**
-     * Adds a plan to the list for every group of `remaining` more candidates that, with `chosen`, covers the order.
-     * Returns how many complete combinations it looked at. Stops with SearchTimedOut once the timeout has passed.
+     * Finds the smallest number of suppliers that cover every category in the order, and the best-ranked plan of
+     * that size. It tries 1 supplier, then 2, and so on. At each step it takes the first category still uncovered and
+     * tries only suppliers that cover it, instead of every combination of suppliers.
      */
-    private int collectCovers(List<Item> items, List<String> categories, List<Candidate> candidates, int start,
-            int remaining, Deque<Candidate> chosen, List<Plan> plans, long startNanos) {
-        if (remaining == 0) {
-            checkTimeout(startNanos);
-            if (coversAll(categories, chosen)) {
-                plans.add(assignItems(items, chosen));
+    private final class Search {
+
+        private final List<Item> items;
+        private final List<String> categories;
+        private final List<Candidate> candidates;
+        private final int mostCategoriesOneSupplierCovers;
+        private final long startNanos;
+        private final Deque<Candidate> chosen = new ArrayDeque<>();
+        // Suppliers already tried for the current category, so the same group is not found twice in another order.
+        private final Set<Candidate> alreadyTried = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final List<Plan> plans = new ArrayList<>();
+        private int steps;
+
+        Search(List<Item> items, List<Candidate> candidates, long startNanos) {
+            this.items = items;
+            this.categories = items.stream().map(Item::category).distinct().toList();
+            this.candidates = candidates;
+            this.mostCategoriesOneSupplierCovers = candidates.stream()
+                    .mapToInt(c -> c.coverableCategories().size())
+                    .max()
+                    .orElse(0);
+            this.startNanos = startNanos;
+        }
+
+        SearchResult run() {
+            for (int size = 1; size <= categories.size(); size++) {
+                addCoversUsing(size, categories);
+                if (!plans.isEmpty()) {
+                    return new SearchResult(plans.stream().min(ranker).orElseThrow(), steps);
+                }
             }
-            return 1;
+            throw new IllegalStateException("Every item has an eligible supplier, so a cover must exist");
         }
-        int examined = 0;
-        for (int i = start; i < candidates.size(); i++) {
-            chosen.addLast(candidates.get(i));
-            examined += collectCovers(items, categories, candidates, i + 1, remaining - 1, chosen, plans,
-                    startNanos);
-            chosen.removeLast();
+
+        /** Adds a plan for every way to cover the `uncovered` categories with at most `remaining` more suppliers. */
+        private void addCoversUsing(int remaining, List<String> uncovered) {
+            if (uncovered.isEmpty()) {
+                plans.add(assignItems(items, chosen));
+                return;
+            }
+            // Dead end: no suppliers left, or even the broadest suppliers could not cover what is left.
+            if (remaining == 0 || uncovered.size() > remaining * mostCategoriesOneSupplierCovers) {
+                return;
+            }
+            String target = uncovered.get(0);
+            List<Candidate> triedHere = new ArrayList<>();
+            for (Candidate candidate : candidates) {
+                if (!candidate.covers(target) || alreadyTried.contains(candidate)) {
+                    continue;
+                }
+                checkTimeout(startNanos);
+                steps++;
+                chosen.addLast(candidate);
+                addCoversUsing(remaining - 1, uncovered.stream().filter(c -> !candidate.covers(c)).toList());
+                chosen.removeLast();
+                alreadyTried.add(candidate);
+                triedHere.add(candidate);
+            }
+            triedHere.forEach(alreadyTried::remove);
         }
-        return examined;
     }
 
     private void checkTimeout(long startNanos) {
         if (timeout.enabled() && System.nanoTime() - startNanos >= timeout.duration().toNanos()) {
             throw new SearchTimedOut();
         }
-    }
-
-    private boolean coversAll(List<String> categories, Deque<Candidate> chosen) {
-        return categories.stream().allMatch(category -> chosen.stream().anyMatch(c -> c.covers(category)));
     }
 
     private Plan assignItems(List<Item> items, Deque<Candidate> chosen) {
