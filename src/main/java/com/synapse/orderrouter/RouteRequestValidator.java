@@ -1,14 +1,42 @@
 package com.synapse.orderrouter;
 
+import com.synapse.orderrouter.RouteRequest.LineItem;
+import java.util.ArrayList;
 import java.util.List;
+import org.springframework.stereotype.Component;
 
+/** Checks what can be decided from the request alone. Whether suppliers exist is the router's job. */
+@Component
 public class RouteRequestValidator {
 
+    private final Catalog catalog;
+
     public RouteRequestValidator(Catalog catalog) {
+        this.catalog = catalog;
     }
 
     /** Returns one message per problem; an empty list means the request is well-formed. */
     public List<String> validate(RouteRequest request) {
-        throw new UnsupportedOperationException("not implemented");
+        List<String> errors = new ArrayList<>();
+        boolean hasItems = request.items() != null && !request.items().isEmpty();
+        if (!hasItems) {
+            errors.add("Order must include at least one line item.");
+        }
+        if (ServiceArea.normalize(request.customerZip()).isEmpty()) {
+            errors.add("Order must include a valid customer_zip.");
+        }
+        if (hasItems) {
+            request.items().forEach(item -> validateItem(item, errors));
+        }
+        return errors;
+    }
+
+    private void validateItem(LineItem item, List<String> errors) {
+        if (item.productCode() == null || !catalog.productCategories().containsKey(item.productCode())) {
+            errors.add("Unknown product code: " + item.productCode() + ".");
+        }
+        if (item.quantity() == null || item.quantity() <= 0) {
+            errors.add("Quantity for " + item.productCode() + " must be a positive integer.");
+        }
     }
 }
