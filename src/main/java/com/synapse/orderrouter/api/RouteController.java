@@ -9,6 +9,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -75,9 +76,19 @@ public class RouteController {
         return (System.nanoTime() - startNanos) / 1_000_000;
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler({HttpMessageNotReadableException.class, HttpMediaTypeNotSupportedException.class})
     public RouteResponse unreadableBody() {
         LOG.warn("Unreadable request body");
         return RouteResponse.failure(List.of("Request body must be valid JSON in the documented format."));
+    }
+
+    /**
+     * Last resort, so no request can produce anything but the documented shape. Only the exception type and where it
+     * was thrown are logged: the message could contain request data.
+     */
+    @ExceptionHandler(Exception.class)
+    public RouteResponse unexpectedFailure(Exception e) {
+        LOG.error("Unexpected error type={} at={}", e.getClass().getName(), e.getStackTrace()[0]);
+        return RouteResponse.failure(List.of("Order could not be routed due to an unexpected error."));
     }
 }

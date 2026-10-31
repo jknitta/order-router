@@ -5,6 +5,7 @@ import com.synapse.orderrouter.catalog.Catalog;
 import com.synapse.orderrouter.catalog.ServiceArea;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 /** Checks what can be decided from the request alone. Whether suppliers exist is the router's job. */
@@ -28,12 +29,18 @@ public class RouteRequestValidator {
             errors.add("Order must include a valid customer_zip.");
         }
         if (hasItems) {
+            if (request.items().stream().anyMatch(Objects::isNull)) {
+                errors.add("Order items must not contain null entries.");
+            }
             request.items().forEach(item -> validateItem(item, errors));
         }
         return errors;
     }
 
     private void validateItem(LineItem item, List<String> errors) {
+        if (item == null) {
+            return;
+        }
         if (item.productCode() == null || !catalog.productCategories().containsKey(item.productCode())) {
             errors.add("Unknown product code: " + item.productCode() + ".");
         }
