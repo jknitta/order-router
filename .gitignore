@@ -25,4 +25,6 @@ replay_pid*
 
 # Maven
 target/
+
+# Visual Studio Code
 .vscode/settings.json

@@ -5,12 +5,15 @@ import static org.assertj.core.groups.Tuple.tuple;
 
 import com.synapse.orderrouter.api.RouteRequest.LineItem;
 import com.synapse.orderrouter.routing.Order;
+import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class RouteRequestTest {
 
-    private static final List<LineItem> LINES = List.of(new LineItem("P-CANE", 2), new LineItem("P-OXY", 1));
+    private static final List<LineItem> LINES = List.of(
+            new LineItem("P-CANE", BigDecimal.valueOf(2)),
+            new LineItem("P-OXY", BigDecimal.valueOf(1)));
 
     @Test
     void toOrderCarriesMailOrderAndLinesInOrder() {

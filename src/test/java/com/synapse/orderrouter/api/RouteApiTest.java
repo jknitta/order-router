@@ -151,6 +151,8 @@ class RouteApiTest {
                 """)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.feasible").value(false))
+                .andExpect(jsonPath("$.errors[0]")
+                        .value("Quantity for WC-STD-001 must be a whole number, but was 1.9."))
                 .andExpect(jsonPath("$.routing").doesNotExist());
     }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.synapse.orderrouter.api.RouteRequest.LineItem;
 import com.synapse.orderrouter.catalog.Catalog;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -20,13 +21,17 @@ class RouteRequestValidatorTest {
     private final RouteRequestValidator validator = new RouteRequestValidator(
             new Catalog(List.of(), Map.of("WC-1", "wheelchair", "OX-1", "oxygen")));
 
+    private static LineItem item(String productCode, int quantity) {
+        return new LineItem(productCode, BigDecimal.valueOf(quantity));
+    }
+
     private static RouteRequest request(String zip, LineItem... items) {
         return new RouteRequest("ORD-T", zip, false, List.of(items));
     }
 
     @Test
     void validRequestHasNoErrors() {
-        assertThat(validator.validate(request("10015", new LineItem("WC-1", 1)))).isEmpty();
+        assertThat(validator.validate(request("10015", item("WC-1", 1)))).isEmpty();
     }
 
     @Test
@@ -45,12 +50,12 @@ class RouteRequestValidatorTest {
     @NullAndEmptySource
     @ValueSource(strings = {"abc", "123", "1234567", "-1234", "12 45"})
     void invalidCustomerZipIsRejected(String zip) {
-        assertThat(validator.validate(request(zip, new LineItem("WC-1", 1)))).containsExactly(BAD_ZIP);
+        assertThat(validator.validate(request(zip, item("WC-1", 1)))).containsExactly(BAD_ZIP);
     }
 
     @Test
     void fourDigitCustomerZipIsPaddedAndAccepted() {
-        assertThat(validator.validate(request("2130", new LineItem("WC-1", 1)))).isEmpty();
+        assertThat(validator.validate(request("2130", item("WC-1", 1)))).isEmpty();
     }
 
     @Test
@@ -60,7 +65,7 @@ class RouteRequestValidatorTest {
 
     @Test
     void unknownProductCodeIsRejectedAndNamed() {
-        List<String> errors = validator.validate(request("10015", new LineItem("WC-1", 1), new LineItem("BAD-9", 1)));
+        List<String> errors = validator.validate(request("10015", item("WC-1", 1), item("BAD-9", 1)));
 
         assertThat(errors).hasSize(1);
         assertThat(errors.get(0)).contains("BAD-9");
@@ -69,7 +74,7 @@ class RouteRequestValidatorTest {
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     void nonPositiveQuantityIsRejectedAndNamed(int quantity) {
-        List<String> errors = validator.validate(request("10015", new LineItem("WC-1", quantity)));
+        List<String> errors = validator.validate(request("10015", item("WC-1", quantity)));
 
         assertThat(errors).hasSize(1);
         assertThat(errors.get(0)).contains("WC-1");
@@ -86,8 +91,29 @@ class RouteRequestValidatorTest {
     @Test
     void aNullEntryInItemsIsRejectedWithoutFailing() {
         RouteRequest request = new RouteRequest("ORD-T", "10015", false,
-                Arrays.asList(new LineItem("WC-1", 1), null));
+                Arrays.asList(item("WC-1", 1), null));
 
         assertThat(validator.validate(request)).containsExactly("Order items must not contain null entries.");
+    }
+
+    @Test
+    void aFractionalQuantityIsRejectedWithAMessageThatNamesTheProductAndTheValue() {
+        List<String> errors = validator.validate(request("10015", new LineItem("WC-1", new BigDecimal("1.9"))));
+
+        assertThat(errors).containsExactly("Quantity for WC-1 must be a whole number, but was 1.9.");
+    }
+
+    @Test
+    void aWholeNumberWrittenWithADecimalPointIsAccepted() {
+        assertThat(validator.validate(request("10015", new LineItem("WC-1", new BigDecimal("2.0"))))).isEmpty();
+    }
+
+    @Test
+    void aQuantityBeyondTheIntegerRangeIsRejectedAsTooLarge() {
+        List<String> errors = validator.validate(
+                request("10015", new LineItem("WC-1", new BigDecimal("99999999999"))));
+
+        assertThat(errors).hasSize(1);
+        assertThat(errors.get(0)).contains("WC-1", "too large");
     }
 }

@@ -44,7 +44,7 @@ public class RouteRequestValidator {
         if (item.productCode() == null || !catalog.productCategories().containsKey(item.productCode())) {
             errors.add("Unknown product code: " + item.productCode() + ".");
         }
-        if (item.quantity() == null || item.quantity() <= 0) {
+        if (item.quantity() == null || item.quantity().signum() <= 0) {
             errors.add("Quantity for " + item.productCode() + " must be a positive integer.");
         }
     }

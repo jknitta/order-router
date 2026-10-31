@@ -144,3 +144,9 @@ With an hour left, I want your thoughts on any other high-value, low LOE efforts
 3. Yes it's going to GitHub
 
 This is a best-effort HIPAA-alignment. Naturally an actual risk analysis would need to be done before shipping.
+
+### Prompt 17
+
+Improve "Silent quantity truncation"
+
+I have about 45 minutes now and we should finish as much as we can to make this prod-ready.
