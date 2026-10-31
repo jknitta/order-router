@@ -134,7 +134,8 @@ public class RouterService {
      */
     private List<Candidate> bestPerCoverage(List<Candidate> candidates) {
         Map<Set<String>, Candidate> best = new HashMap<>();
-        candidates.forEach(c -> best.merge(c.coverableCategories(), c, (a, b) -> BEST_FIRST.compare(a, b) <= 0 ? a : b));
+        candidates.forEach(c -> best.merge(c.coverableCategories(), c,
+                (a, b) -> BEST_FIRST.compare(a, b) <= 0 ? a : b));
         return List.copyOf(best.values());
     }
 
