@@ -26,11 +26,11 @@ public class RouterService {
     private record Item(String productCode, int quantity, String category) {
     }
 
-    /** A supplier that may serve this order, and the product codes in the order it can handle. */
-    private record Candidate(Supplier supplier, boolean local, Set<String> coverableCodes) {
+    /** A supplier that may serve this order, and which of the order's categories it can handle. */
+    private record Candidate(Supplier supplier, boolean local, Set<String> coverableCategories) {
 
-        boolean covers(String productCode) {
-            return coverableCodes.contains(productCode);
+        boolean covers(String category) {
+            return coverableCategories.contains(category);
         }
     }
 
@@ -109,12 +109,12 @@ public class RouterService {
             if (!local && !(order.mailOrder() && supplier.canMailOrder())) {
                 continue;
             }
-            Set<String> coverableCodes = items.stream()
-                    .filter(item -> supplier.categories().contains(item.category()))
-                    .map(Item::productCode)
+            Set<String> coverableCategories = items.stream()
+                    .map(Item::category)
+                    .filter(supplier.categories()::contains)
                     .collect(Collectors.toSet());
-            if (!coverableCodes.isEmpty()) {
-                candidates.add(new Candidate(supplier, local, coverableCodes));
+            if (!coverableCategories.isEmpty()) {
+                candidates.add(new Candidate(supplier, local, coverableCategories));
             }
         }
         return candidates;
@@ -122,28 +122,29 @@ public class RouterService {
 
     private List<String> unroutableItemErrors(List<Item> items, List<Candidate> candidates) {
         return items.stream()
-                .filter(item -> candidates.stream().noneMatch(c -> c.covers(item.productCode())))
+                .filter(item -> candidates.stream().noneMatch(c -> c.covers(item.category())))
                 .map(item -> "No eligible supplier for product " + item.productCode()
                         + " (category: " + item.category() + ").")
                 .toList();
     }
 
     /**
-     * Among suppliers that can take exactly the same items, only the best-ranked can ever win, so the others are
+     * Among suppliers that can take exactly the same categories, only the best-ranked can ever win, so the others are
      * dropped. This keeps the search small however many suppliers there are.
      */
     private List<Candidate> bestPerCoverage(List<Candidate> candidates) {
         Map<Set<String>, Candidate> best = new HashMap<>();
-        candidates.forEach(c -> best.merge(c.coverableCodes(), c, (a, b) -> BEST_FIRST.compare(a, b) <= 0 ? a : b));
+        candidates.forEach(c -> best.merge(c.coverableCategories(), c, (a, b) -> BEST_FIRST.compare(a, b) <= 0 ? a : b));
         return List.copyOf(best.values());
     }
 
     /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, with its best-ranked plan. */
     private SearchResult fewestSuppliersPlan(List<Item> items, List<Candidate> candidates, long startNanos) {
+        List<String> categories = items.stream().map(Item::category).distinct().toList();
         int examined = 0;
-        for (int size = 1; size <= items.size(); size++) {
+        for (int size = 1; size <= categories.size(); size++) {
             List<Plan> plans = new ArrayList<>();
-            examined += collectCovers(items, candidates, 0, size, new ArrayDeque<>(), plans, startNanos);
+            examined += collectCovers(items, categories, candidates, 0, size, new ArrayDeque<>(), plans, startNanos);
             if (!plans.isEmpty()) {
                 return new SearchResult(plans.stream().min(ranker).orElseThrow(), examined);
             }
@@ -155,11 +156,11 @@ public class RouterService {
      * Adds a plan to the list for every group of `remaining` more candidates that, with `chosen`, covers the order.
      * Returns how many complete combinations it looked at. Stops with SearchTimedOut once the timeout has passed.
      */
-    private int collectCovers(List<Item> items, List<Candidate> candidates, int start, int remaining,
-            Deque<Candidate> chosen, List<Plan> plans, long startNanos) {
+    private int collectCovers(List<Item> items, List<String> categories, List<Candidate> candidates, int start,
+            int remaining, Deque<Candidate> chosen, List<Plan> plans, long startNanos) {
         if (remaining == 0) {
             checkTimeout(startNanos);
-            if (coversAll(items, chosen)) {
+            if (coversAll(categories, chosen)) {
                 plans.add(assignItems(items, chosen));
             }
             return 1;
@@ -167,7 +168,8 @@ public class RouterService {
         int examined = 0;
         for (int i = start; i < candidates.size(); i++) {
             chosen.addLast(candidates.get(i));
-            examined += collectCovers(items, candidates, i + 1, remaining - 1, chosen, plans, startNanos);
+            examined += collectCovers(items, categories, candidates, i + 1, remaining - 1, chosen, plans,
+                    startNanos);
             chosen.removeLast();
         }
         return examined;
@@ -179,15 +181,15 @@ public class RouterService {
         }
     }
 
-    private boolean coversAll(List<Item> items, Deque<Candidate> chosen) {
-        return items.stream().allMatch(item -> chosen.stream().anyMatch(c -> c.covers(item.productCode())));
+    private boolean coversAll(List<String> categories, Deque<Candidate> chosen) {
+        return categories.stream().allMatch(category -> chosen.stream().anyMatch(c -> c.covers(category)));
     }
 
     private Plan assignItems(List<Item> items, Deque<Candidate> chosen) {
         List<Assignment> assignments = new ArrayList<>();
         for (Item item : items) {
             Candidate taker = chosen.stream()
-                    .filter(c -> c.covers(item.productCode()))
+                    .filter(c -> c.covers(item.category()))
                     .min(BEST_FIRST)
                     .orElseThrow();
             assignments.add(new Assignment(taker.supplier(), item.productCode(), item.quantity(), item.category(),
