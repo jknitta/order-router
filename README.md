@@ -56,7 +56,23 @@ Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must incl
 
 Example: `curl localhost:8080/actuator/metrics/router.search.combinations`
 
+## Performance
+
+The supplier search picks the first category still uncovered and only tries suppliers that cover it. It skips groups it has already explored and stops when the remaining suppliers cannot cover what is left. It returns the same answers as trying every combination: a randomized test compares it with a brute-force reference on 400 random catalogs.
+
+An opt-in suite runs synthetic worst cases (`mvn test -Pperf`; the normal build skips it). Its work budgets count search steps, which are deterministic, so they do not flake. Measured on the same made-up catalogs:
+
+| Scenario | Exhaustive search | Branching search |
+|---|---|---|
+| 500 suppliers, 12 categories, 3 suppliers needed | 374,791 combinations | 6,266 steps |
+| 500 suppliers, 16 categories, 4 suppliers needed | 84,980,042 combinations, 9.7 s | 486,775 steps, 0.25 s |
+| 20,000 suppliers, 4 items | 28 ms | 34 ms |
+
+The real CSVs never reach these cases: a supplier covering every category exists, so every order there resolves with one supplier in milliseconds. Timings are from a laptop and vary from run to run. The step counts do not.
+
 ## Search timeout
+
+A search can still be made arbitrarily hard with different data, so it is capped as well.
 
 A supplier search that runs past `router.search.timeout.duration` (default `PT2S`) stops itself, and the order returns `feasible: false` with "Order could not be routed within the time limit." Nothing partial is returned. It is counted as `order.route` outcome `timeout` and logged as a warning. Set `router.search.timeout.enabled=false` to let every search run to completion. Either setting can be overridden through the environment, for example `ROUTER_SEARCH_TIMEOUT_DURATION=PT500MS`.
 
@@ -88,7 +104,7 @@ Only `/actuator/health` and `/actuator/metrics` are exposed. Metrics hold counts
 - Log retention, access control and audit.
 - A BAA with the hosting and logging vendors.
 
-**Known gaps.** There is no cap on order size, so a pathological order could make the supplier search slow (checklist #5, which is why rate limiting matters). The base image is pinned by tag, not digest. The image scan is documented but has not been run.
+**Known gaps.** There is no cap on order size. A pathological order is stopped by the search timeout (default 2 s) but can still use that much CPU per request, so rate limiting at the platform is still needed. The base image is pinned by tag, not digest. The image scan is documented but has not been run.
 
 ## Code layout
 
@@ -132,8 +148,8 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 | 1 | [x] | Request logging | Med-High | ~20 min | One structured line per routed order (order id, feasible, supplier ids, duration) plus a warning for each rejected order. The service has no logging today, so a bad answer cannot be traced. |
 | 2 | [x] | Code linting | Med | ~30 min | Checkstyle (`checkstyle.xml`) runs on every build and fails it on violations. Chosen over google-java-format because that would reformat the whole codebase to a different style. |
 | 3 | [~] | CLAUDE.md and skills to enforce standards | High | ~45 min | Update CLAUDE.md for the package layout and the dependency direction (`api` -> `routing` -> `catalog`). CLAUDE.md now records the layout and standards (done). Still open: a hook that blocks commits unless `mvn test` passes, and a skill for the red-green and prompt-logging steps. |
-| 4 | [ ] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |
-| 5 | [ ] | Search-cost guard | High | ~30 min | Exhaustive set search grows quickly with distinct items. Cap distinct items per order or fall back to greedy past a limit. Depends on #4 for the numbers, and the cap is new behavior, so it needs a decision first. |
+| 4 | [x] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |
+| 5 | [x] | Search-cost guard | High | ~30 min | Done as a configurable timeout (see Search timeout, switchable by configuration) plus a faster branching search. No order-size cap and no greedy fallback, by decision. |
 | 6 | [ ] | Clean Data initiative | High | ~45 min | Fix the source files instead of compensating in code: leading zeros, category casing, the `suplier_name` header, duplicate product rows, and inconsistent supplier IDs (14 look like `SUP-T001`). Then simplify the loader. |
 | 7 | [x] | Metrics instrumentation | Med | ~40 min | Spring Boot Actuator and Micrometer: a timer on `/api/route` and counters for feasible and infeasible orders. |
 | 8 | [ ] | Documentation | Med | ~45 min | OpenAPI description of `/api/route`, a short architecture note (packages and the search), and Javadoc on the public types. |

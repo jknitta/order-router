@@ -60,14 +60,27 @@ class SearchPerformanceTest {
 
     @Test
     void s3AdversarialCoverNeedsAFarSmallerSearch() {
-        SyntheticCatalog synthetic = SyntheticCatalog.build(500, 24, 1, 0.17, 3L);
+        SyntheticCatalog synthetic = SyntheticCatalog.build(500, 24, 1, 0.12, 3L);
 
         Run run = run(synthetic, synthetic.orderOfCategories(12), new SearchTimeout(true, Duration.ofSeconds(10)));
 
         report("S3 500 suppliers, 12 cats, 3 needed", run);
         assertThat(run.result()).isInstanceOf(Routed.class);
-        assertThat(((Routed) run.result()).plan().suppliers().size()).isGreaterThanOrEqualTo(3);
-        assertThat(run.combinations()).isLessThan(1_000_000);
+        assertThat(((Routed) run.result()).plan().suppliers().size()).isEqualTo(3);
+        assertThat(run.combinations()).isLessThan(50_000);
+    }
+
+    @Test
+    void s3bAnOrderNeedingFourSuppliersStillFinishesQuickly() {
+        SyntheticCatalog synthetic = SyntheticCatalog.build(500, 24, 1, 0.12, 3L);
+
+        Run run = run(synthetic, synthetic.orderOfCategories(16), new SearchTimeout(true, Duration.ofSeconds(10)));
+
+        report("S3b 500 suppliers, 16 cats, 4 needed", run);
+        assertThat(run.result()).isInstanceOf(Routed.class);
+        assertThat(((Routed) run.result()).plan().suppliers().size()).isEqualTo(4);
+        assertThat(run.combinations()).isLessThan(2_000_000);
+        assertThat(run.millis()).isLessThan(2_000);
     }
 
     @Test
