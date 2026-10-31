@@ -36,6 +36,17 @@ The tests cover ZIP parsing, CSV loading, validation, the routing rules and the 
 
 Extra request fields (such as `priority` and `notes`) are ignored.
 
+## Logging
+
+SLF4J API with Logback (configured in `logback-spring.xml`). Each order logs one line:
+
+```
+Routed order_id=ORD-001 feasible=true suppliers=[SUP-0636] items=2 mail_order=false duration_ms=3
+Rejected order_id=ORD-X feasible=false reason=validation errors=[Order must include at least one line item.] duration_ms=0
+```
+
+`reason` is `validation` or `unroutable`. Unreadable JSON logs a warning. The customer ZIP, product codes and request bodies are never logged, because together they can identify a patient's care.
+
 ## Code layout
 
 Dependencies run one way: `api` -> `routing` -> `catalog`.
@@ -75,7 +86,7 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 
 | # | Done | Item | Impact | LOE | Why / scope |
 |---|------|------|--------|-----|-------------|
-| 1 | [ ] | Request logging | Med-High | ~20 min | One structured line per routed order (order id, feasible, supplier ids, duration) plus a warning for each rejected order. The service has no logging today, so a bad answer cannot be traced. |
+| 1 | [x] | Request logging | Med-High | ~20 min | One structured line per routed order (order id, feasible, supplier ids, duration) plus a warning for each rejected order. The service has no logging today, so a bad answer cannot be traced. |
 | 2 | [ ] | Code linting | Med | ~30 min | Spotless (google-java-format) and unused-import checks wired into `mvn verify`, so style cannot drift. |
 | 3 | [ ] | CLAUDE.md and skills to enforce standards | High | ~45 min | Update CLAUDE.md for the package layout and the dependency direction (`api` -> `routing` -> `catalog`). Add a hook that blocks commits unless `mvn verify` passes, and a skill for the red-green-refactor and prompt-logging steps. |
 | 4 | [ ] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |

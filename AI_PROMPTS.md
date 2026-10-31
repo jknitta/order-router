@@ -120,3 +120,7 @@ for (int i = 0; i < items.size(); i++) {
 ### Prompt 12
 
 Start with logging
+
+### Prompt 13
+
+yes these are good. i was unfamiliar with the OutputCaptureExtension.class extension so that's cool. But I want to be opinionated about the implementation. I prefer that we use a logback with slf4j interface
