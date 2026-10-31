@@ -33,8 +33,10 @@ class CatalogLoaderTest {
 
     @Test
     void readsSupplierNameDespiteTypoInHeader() {
-        assertThat(catalog.suppliers()).extracting(Supplier::name)
-                .containsExactly("Local Medical Supply Co", "Mail Only Inc", "Top Rated LLC");
+        assertThat(catalog.suppliers()).hasSize(3);
+        assertThat(supplier("SUP-001").name()).isEqualTo("Local Medical Supply Co");
+        assertThat(supplier("SUP-002").name()).isEqualTo("Mail Only Inc");
+        assertThat(supplier("SUP-003").name()).isEqualTo("Top Rated LLC");
     }
 
     @Test
@@ -45,15 +47,17 @@ class CatalogLoaderTest {
 
     @Test
     void numericScoresParseAndNoRatingsYetBecomesTheMidpoint() {
-        assertThat(catalog.suppliers()).extracting(Supplier::score)
-                .containsExactly(7.0, Supplier.UNRATED_SCORE, 10.0);
+        assertThat(supplier("SUP-001").score()).isEqualTo(7.0);
+        assertThat(supplier("SUP-002").score()).isEqualTo(Supplier.UNRATED_SCORE);
+        assertThat(supplier("SUP-003").score()).isEqualTo(10.0);
         assertThat(Supplier.UNRATED_SCORE).isEqualTo(5.5);
     }
 
     @Test
     void mailOrderFlagIsReadCaseInsensitively() {
-        assertThat(catalog.suppliers()).extracting(Supplier::canMailOrder)
-                .containsExactly(true, false, false);
+        assertThat(supplier("SUP-001").canMailOrder()).isTrue();
+        assertThat(supplier("SUP-002").canMailOrder()).isFalse();
+        assertThat(supplier("SUP-003").canMailOrder()).isFalse();
     }
 
     @Test
