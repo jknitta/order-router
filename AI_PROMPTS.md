@@ -156,3 +156,8 @@ I have about 45 minutes now and we should finish as much as we can to make this 
 3 is quick and saves time, then
 2 gives us data on how non-performant the rate or order-size issues are, then
 1 and let's discuss options for how to actually handle large orders performantly
+
+### Prompt 19
+
+1. Yes B then A, but tell me what your plan is for the performance test first
+2. I don't want Option D at all. I would rather handle long-running queries via configurable timeouts
