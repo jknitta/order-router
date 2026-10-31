@@ -1,6 +1,6 @@
 # PLAN
 
-Status: RED. Maven scaffold, production stubs and 55 failing tests are in place. Waiting on the author's test review before implementing.
+Status: GREEN. 55 tests pass, container builds and runs under Podman. Remaining: lock in sample-order expectations, README, clean-clone check, distill this file.
 
 ## Setup decisions
 - Maven, Java 21, Spring Boot.
@@ -37,7 +37,7 @@ Status: RED. Maven scaffold, production stubs and 55 failing tests are in place.
 | 14 | 4-digit `customer_zip` on an order | Left-pad to 5 digits, same rule as supplier data |
 
 ## Open items
-(none) Next: author reviews the tests, then implement until green, then Dockerfile and README.
+- Supplier ID tie-break: IDs have mixed widths (`SUP-023`, `SUP-0636`, and 14 like `SUP-T001`). Plain text comparison is used today; decide whether numeric order is wanted.
 
 ## Implementation steps
 1. Scaffold: Maven project, Dockerfile, CSVs into resources, `.gitignore` for `target/`.
@@ -49,8 +49,15 @@ Status: RED. Maven scaffold, production stubs and 55 failing tests are in place.
 ## Deviations
 - Planned: copy the CSVs into `src/main/resources`. Changed to: move them (and `sample_orders.json` to `src/test/resources`), because two copies of 160KB data files would drift.
 
+## Implementation notes
+- Search: try 1 supplier, then 2, and so on; the first size that covers the order wins. Suppliers with identical item coverage are collapsed to the best-ranked one first.
+- Local-flag: a supplier serving the ZIP is `local` even on a `mail_order = true` order, and is eligible even if `can_mail_order? = n`.
+- A non-numeric score is treated like "no ratings yet" (5.5).
+- Two set-ranking tests were corrected after review (they ignored cross-combinations such as 001+004). See commit 5a0135f.
+- Sample orders checked against an independent Python brute force: ORD-001 SUP-0636, ORD-002 SUP-0928, ORD-003 SUP-023, one supplier each.
+
 ## Future initiatives
-- **Clean Data initiative:** normalize `suppliers.csv` and `products.csv` at the source (ZIP leading zeros, category casing, header typo, duplicate product rows) so the router does not need to compensate.
+- **Clean Data initiative:** also normalize supplier ID formats (14 are `SUP-T###`); normalize `suppliers.csv` and `products.csv` at the source (ZIP leading zeros, category casing, header typo, duplicate product rows) so the router does not need to compensate.
 - **Supplier fairness:** the tie-break is lowest `supplier_id` for simplicity. This favors early IDs. A later improvement should track which suppliers were selected most recently and rotate. Suppliers need to be happy in the network as much as customers.
 - **Partial order fulfillment:** the spec is all-or-nothing (`feasible` is binary). Returning the routable items plus the unroutable ones is out of MVP scope.
 - **"Similar" ratings:** currently an exact match. Revisit if it proves too strict.
