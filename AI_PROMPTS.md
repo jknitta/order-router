@@ -116,3 +116,7 @@ for (int i = 0; i < items.size(); i++) {
                     coverage |= 1 << i;
                 }
             }
+
+### Prompt 12
+
+Start with logging
