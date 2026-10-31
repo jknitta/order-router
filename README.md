@@ -25,7 +25,7 @@ Needs Java 21 and Maven:
 mvn test
 ```
 
-The tests cover ZIP parsing, CSV loading, validation, the routing rules and the HTTP contract. The three orders in `sample_orders.json` are run against the real CSVs.
+`mvn test` also runs Checkstyle first (`checkstyle.xml`: imports, indentation, line length, naming) and fails on any violation. The tests cover ZIP parsing, CSV loading, validation, the routing rules and the HTTP contract. The three orders in `sample_orders.json` are run against the real CSVs.
 
 ## API
 
@@ -87,7 +87,7 @@ Working list of what to tackle next, ordered by best-guess impact against effort
 | # | Done | Item | Impact | LOE | Why / scope |
 |---|------|------|--------|-----|-------------|
 | 1 | [x] | Request logging | Med-High | ~20 min | One structured line per routed order (order id, feasible, supplier ids, duration) plus a warning for each rejected order. The service has no logging today, so a bad answer cannot be traced. |
-| 2 | [ ] | Code linting | Med | ~30 min | Spotless (google-java-format) and unused-import checks wired into `mvn verify`, so style cannot drift. |
+| 2 | [x] | Code linting | Med | ~30 min | Checkstyle (`checkstyle.xml`) runs on every build and fails it on violations. Chosen over google-java-format because that would reformat the whole codebase to a different style. |
 | 3 | [ ] | CLAUDE.md and skills to enforce standards | High | ~45 min | Update CLAUDE.md for the package layout and the dependency direction (`api` -> `routing` -> `catalog`). Add a hook that blocks commits unless `mvn verify` passes, and a skill for the red-green-refactor and prompt-logging steps. |
 | 4 | [ ] | Performance tests | High | ~1 hr | A test with a worst-case order (many distinct items, mail order on, about 500 eligible suppliers) and a time budget. It quantifies the search-cost risk below. |
 | 5 | [ ] | Search-cost guard | High | ~30 min | Exhaustive set search grows quickly with distinct items. Cap distinct items per order or fall back to greedy past a limit. Depends on #4 for the numbers, and the cap is new behavior, so it needs a decision first. |

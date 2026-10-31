@@ -102,7 +102,7 @@ public class RouterService {
         return List.copyOf(best.values());
     }
 
-    /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, best-ranked plan of that size. */
+    /** Tries 1 supplier, then 2, and so on; the first size that covers the order wins, with its best-ranked plan. */
     private Plan fewestSuppliersPlan(List<Item> items, List<Candidate> candidates) {
         for (int size = 1; size <= items.size(); size++) {
             List<Plan> plans = new ArrayList<>();

@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class RouteController {
 
-    private static final Logger log = LoggerFactory.getLogger(RouteController.class);
+    private static final Logger LOG = LoggerFactory.getLogger(RouteController.class);
 
     private final RouteRequestValidator validator;
     private final RouterService router;
@@ -55,13 +55,13 @@ public class RouteController {
 
     private static void logRouted(RouteRequest request, Plan plan, long startNanos) {
         List<String> supplierIds = plan.suppliers().stream().map(Supplier::id).toList();
-        log.info("Routed order_id={} feasible=true suppliers={} items={} mail_order={} duration_ms={}",
+        LOG.info("Routed order_id={} feasible=true suppliers={} items={} mail_order={} duration_ms={}",
                 loggable(request.orderId()), supplierIds, plan.assignments().size(), request.mailOrder(),
                 millisSince(startNanos));
     }
 
     private static void logRejected(RouteRequest request, String reason, List<String> errors, long startNanos) {
-        log.info("Rejected order_id={} feasible=false reason={} errors={} duration_ms={}",
+        LOG.info("Rejected order_id={} feasible=false reason={} errors={} duration_ms={}",
                 loggable(request.orderId()), reason, errors.stream().map(RouteController::loggable).toList(),
                 millisSince(startNanos));
     }
@@ -77,7 +77,7 @@ public class RouteController {
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public RouteResponse unreadableBody() {
-        log.warn("Unreadable request body");
+        LOG.warn("Unreadable request body");
         return RouteResponse.failure(List.of("Request body must be valid JSON in the documented format."));
     }
 }

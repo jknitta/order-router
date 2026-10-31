@@ -15,7 +15,7 @@ public class CatalogConfig {
     @Bean
     public Catalog catalog() {
         try (Reader suppliers = classpathReader("data/suppliers.csv");
-             Reader products = classpathReader("data/products.csv")) {
+                Reader products = classpathReader("data/products.csv")) {
             return CatalogLoader.load(suppliers, products);
         } catch (IOException e) {
             throw new UncheckedIOException("Could not read the CSV files from the classpath", e);
