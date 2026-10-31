@@ -1,6 +1,6 @@
 # PLAN
 
-Status: planning. No code written. Waiting on the open items below.
+Status: RED. Maven scaffold, production stubs and 55 failing tests are in place. Waiting on the author's test review before implementing.
 
 ## Setup decisions
 - Maven, Java 21, Spring Boot.
@@ -37,7 +37,7 @@ Status: planning. No code written. Waiting on the open items below.
 | 14 | 4-digit `customer_zip` on an order | Left-pad to 5 digits, same rule as supplier data |
 
 ## Open items
-(none) Next: author reviews the test list, then tests, then implementation.
+(none) Next: author reviews the tests, then implement until green, then Dockerfile and README.
 
 ## Implementation steps
 1. Scaffold: Maven project, Dockerfile, CSVs into resources, `.gitignore` for `target/`.
@@ -47,7 +47,7 @@ Status: planning. No code written. Waiting on the open items below.
 5. README, final clean-clone verification.
 
 ## Deviations
-(none yet)
+- Planned: copy the CSVs into `src/main/resources`. Changed to: move them (and `sample_orders.json` to `src/test/resources`), because two copies of 160KB data files would drift.
 
 ## Future initiatives
 - **Clean Data initiative:** normalize `suppliers.csv` and `products.csv` at the source (ZIP leading zeros, category casing, header typo, duplicate product rows) so the router does not need to compensate.
