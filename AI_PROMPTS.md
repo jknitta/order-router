@@ -44,3 +44,5 @@ API and integration
 - 39. we already decided that it will be 200 with feasible: false. The error reason will describe why
 
 Good set to start. We'll see if we need to add coverage as we go along.
+
+6. Just installed Java and Maven. I need docker, but is it safer to just podman for licensing reasons?
