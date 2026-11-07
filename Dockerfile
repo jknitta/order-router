@@ -4,7 +4,7 @@ COPY pom.xml .
 COPY src ./src
 RUN mvn -B -ntp -DskipTests -Dcheckstyle.skip package
 
-FROM docker.io/library/eclipse-temurin:21-jre
+FROM docker.io/library/eclipse-temurin:25-jre
 WORKDIR /app
 RUN useradd --system --uid 10001 --no-create-home appuser
 COPY --from=build /app/target/order-router-0.0.1-SNAPSHOT.jar app.jar
